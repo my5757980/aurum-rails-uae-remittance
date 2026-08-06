@@ -1,0 +1,372 @@
+openapi: 3.1.0
+info:
+  title: Aurum Rails API — UAE → Global Cross-Border Payments on Arc
+  version: 0.1.0
+  description: |
+    Track 1 MVP API. All endpoints are Next.js Route Handlers running server-side.
+
+    **Invariants enforced across every endpoint:**
+    - All monetary values are **strings** carrying integer minor units (USDC 6dp).
+      Strings, not numbers — JSON numbers cannot safely represent int64 (FR-018).
+    - Every chain operation targets Arc Testnet **5042002** and hard-fails otherwise (FR-013).
+    - Errors always return `{ code, message, correlationId }` (NFR-025).
+    - No Circle credential is ever reachable from the client (NFR-011).
+  license:
+    name: Apache-2.0
+
+servers:
+  - url: https://{deployment}.vercel.app/api
+    variables:
+      deployment:
+        default: aurum-rails
+
+tags:
+  - name: quotes
+  - name: transfers
+  - name: payouts
+  - name: treasury
+  - name: public
+  - name: webhooks
+
+paths:
+  /quotes:
+    post:
+      tags: [quotes]
+      summary: Price a transfer — returns the complete §7.4 disclosure payload
+      description: |
+        Returns every field the UI must display **before** the confirm control is enabled
+        (FR-008). No on-chain side effects. Quote expires after `QUOTE_TTL_SECONDS`
+        (default 60) and cannot be executed once expired (FR-010, E3).
+      security: [{ supabaseAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipientId, sendAed]
+              properties:
+                recipientId: { type: string, format: uuid }
+                sendAed:
+                  type: string
+                  description: AED in fils (2dp minor units), e.g. "500" = AED 5.00
+                  example: "500"
+      responses:
+        '201':
+          description: Quote created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Quote' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422':
+          description: Amount outside demo limits (E10, R2)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /transfers:
+    post:
+      tags: [transfers]
+      summary: Execute a transfer against a valid quote
+      description: |
+        Requires an `Idempotency-Key` header. A repeated key returns the **original**
+        transfer and creates no second transfer (FR-014, E4) — enforced by a UNIQUE
+        database index, not by application convention.
+      security: [{ supabaseAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quoteId]
+              properties:
+                quoteId: { type: string, format: uuid }
+      responses:
+        '201':
+          description: Transfer initiated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '200':
+          description: Idempotent replay — the original transfer, unchanged
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Transfer' }
+        '402':
+          description: INSUFFICIENT_FUNDS — blocked pre-submission with a funding action (E1)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '409':
+          description: QUOTE_EXPIRED — refresh required; the stale rate is never executed (E3)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '503':
+          description: WRONG_CHAIN — active chain is not 5042002 (E8, Constitution I)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /transfers/{id}:
+    get:
+      tags: [transfers]
+      summary: Transfer with its ordered status history
+      description: |
+        Supabase Realtime is the primary status channel (FR-016). This endpoint is the
+        fallback and the source for receipts.
+      security: [{ supabaseAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TransferDetail' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /payout-runs:
+    post:
+      tags: [payouts]
+      summary: Create and execute a batch payout (User Story 2)
+      description: |
+        Items settle and fail **independently**. One failure never rolls back the others
+        (FR-025, E11); the run reports `PARTIALLY_FAILED` as a first-class outcome.
+      security: [{ supabaseAuth: [] }]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [items]
+              properties:
+                items:
+                  type: array
+                  minItems: 1
+                  maxItems: 25
+                  items:
+                    type: object
+                    required: [recipientId, sendAed]
+                    properties:
+                      recipientId: { type: string, format: uuid }
+                      sendAed: { type: string }
+                      invoiceRef: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PayoutRun' }
+
+  /treasury:
+    get:
+      tags: [treasury]
+      summary: Gateway unified USDC balance with per-chain composition
+      description: Cached ~30s to avoid rate-limiting the hero path (R4, FR-026).
+      security: [{ supabaseAuth: [] }]
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TreasuryBalance' }
+
+  /claim/{token}:
+    get:
+      tags: [public]
+      summary: Public recipient view — no auth, no install (FR-021, FR-022)
+      description: |
+        Returns a **minimal projection**: sender first name, landed amount, currency,
+        delivery time. Never returns wallet addresses, emails, or transfer ids.
+        Contains zero crypto vocabulary.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string, minLength: 32 }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  senderFirstName: { type: string, example: "Rajesh" }
+                  landedAmount: { type: string, example: "226200" }
+                  landedCurrency: { type: string, example: "INR" }
+                  deliveredAt: { type: string, format: date-time }
+                  isSimulated: { type: boolean, example: true }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /webhooks/circle:
+    post:
+      tags: [webhooks]
+      summary: Circle transaction notifications
+      description: |
+        Verified via `X-Circle-Signature` before any processing. Drives the status state
+        machine (FR-015) and Realtime updates (FR-016). Unsigned or invalid requests are
+        rejected with 401 and never touch application state.
+      parameters:
+        - name: X-Circle-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        '204': { description: Accepted }
+        '401': { description: Invalid signature — rejected without side effects }
+
+components:
+  securitySchemes:
+    supabaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Quote:
+      type: object
+      description: Every field the §7.4 disclosure panel renders. The panel is a pure projection.
+      required:
+        [id, sendAed, sendUsdc6, networkFeeUsdc6, serviceFeeUsdc6, totalFeeAed,
+         fxRate, fxSource, fxTimestamp, fxSpreadBps, landedAmount, landedCurrency,
+         landedIsSimulated, etaSeconds, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        sendAed: { type: string, example: "500" }
+        sendUsdc6: { type: string, example: "136157" }
+        networkFeeUsdc6: { type: string, example: "27" }
+        serviceFeeUsdc6: { type: string, example: "26957" }
+        totalFeeAed: { type: string, example: "99" }
+        totalFeeUsd: { type: string, example: "27" }
+        fxRate: { type: string, example: "22.85" }
+        fxSource: { type: string, example: "exchangerate.host" }
+        fxTimestamp: { type: string, format: date-time }
+        fxSpreadBps:
+          type: integer
+          example: 0
+          description: Displayed even when zero — showing the zero proves the line item is real (FR-011)
+        landedAmount: { type: string, example: "226200" }
+        landedCurrency: { type: string, example: "INR" }
+        landedIsSimulated:
+          type: boolean
+          example: true
+          description: Drives the mandatory [Simulated] badge (FR-012, Q1 decision)
+        etaSeconds: { type: integer, example: 5 }
+        expiresAt: { type: string, format: date-time }
+
+    Transfer:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        quoteId: { type: string, format: uuid }
+        recipientId: { type: string, format: uuid }
+        amountUsdc6: { type: string }
+        state: { $ref: '#/components/schemas/TransferState' }
+        txHash: { type: string, nullable: true }
+        explorerUrl:
+          type: string
+          nullable: true
+          example: https://testnet.arcscan.app/tx/0xabc...
+        createdAt: { type: string, format: date-time }
+        deliveredAt: { type: string, format: date-time, nullable: true }
+
+    TransferDetail:
+      allOf:
+        - $ref: '#/components/schemas/Transfer'
+        - type: object
+          properties:
+            quote: { $ref: '#/components/schemas/Quote' }
+            statusEvents:
+              type: array
+              items: { $ref: '#/components/schemas/StatusEvent' }
+
+    TransferState:
+      type: string
+      enum: [INITIATED, QUOTE_LOCKED, FUNDING, SUBMITTED, SETTLING, SETTLED,
+             DELIVERING, DELIVERED, FAILED, PENDING_RETRY, NEEDS_REVIEW]
+
+    StatusEvent:
+      type: object
+      properties:
+        fromState: { $ref: '#/components/schemas/TransferState' }
+        toState: { $ref: '#/components/schemas/TransferState' }
+        occurredAt: { type: string, format: date-time }
+        reason:
+          type: string
+          nullable: true
+          description: Required whenever toState is FAILED (FR-019, DB-enforced)
+        correlationId: { type: string }
+
+    PayoutRun:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        state: { type: string, enum: [DRAFT, EXECUTING, COMPLETED, PARTIALLY_FAILED] }
+        totalUsdc6: { type: string }
+        totalFeeUsdc6: { type: string }
+        transfers:
+          type: array
+          items: { $ref: '#/components/schemas/Transfer' }
+
+    TreasuryBalance:
+      type: object
+      properties:
+        unifiedUsdc6: { type: string }
+        perChain:
+          type: array
+          items:
+            type: object
+            properties:
+              domain: { type: integer, example: 26 }
+              chain: { type: string, example: ARC-TESTNET }
+              usdc6: { type: string }
+        observedAt: { type: string, format: date-time }
+        isLowBalance:
+          type: boolean
+          description: Triggers the demo-funds banner (E2, R2)
+
+    Error:
+      type: object
+      required: [code, message, correlationId]
+      properties:
+        code:
+          type: string
+          enum: [VALIDATION_FAILED, UNAUTHORIZED, NOT_FOUND, QUOTE_EXPIRED,
+                 INSUFFICIENT_FUNDS, WRONG_CHAIN, AMOUNT_OUT_OF_RANGE,
+                 RATE_UNAVAILABLE, PROVIDER_ERROR]
+        message:
+          type: string
+          description: User-safe plain language. Raw provider errors never surface here (FR-019).
+          example: "You don't have enough to send this. Add demo funds and try again."
+        correlationId: { type: string }
+
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: Not signed in, or does not own this resource (NFR-013)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }

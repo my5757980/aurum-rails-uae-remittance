@@ -1,0 +1,74 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*.local
+.env
+!.env.example
+
+# ── Constitution VII: secrets discipline (Aurum Rails) ──────────────────
+# Upstream ignored only `.env` and `.env*.local`, leaving e.g. `.env.production`
+# and `.env.staging` tracked. Broadened to every .env variant.
+.env*
+!.env.example
+
+# Circle entity-secret recovery file. Circle's own docs warn this must never
+# live in the repository — losing control of it compromises every wallet.
+*-recovery-file.json
+*recovery*.json
+entity-secret*.txt
+
+# Keys and certificates of any kind
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local scratch / spike output that may echo balances or addresses
+/scratch/
+spike-output*.json
+
+# Browser-automation artifacts. Screenshots of the Circle console can contain a
+# freshly-created API key secret, which is shown exactly once. Never commit these.
+.playwright-mcp/
+circle-*.png
+console-*.log
+
+# vercel
+.vercel
+
+# supabase
+supabase/.temp/
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

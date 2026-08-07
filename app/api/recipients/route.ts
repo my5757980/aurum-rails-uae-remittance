@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ensureSeeded, listRecipients } from "@/lib/seed";
 import { recipientDto } from "@/lib/serialize";
-import { getSenderWallet, getUsdcBalance, createWallet } from "@/lib/wallet-service";
+import {
+  getSenderWallet,
+  getUsdcBalance,
+  createWallet,
+  createWalletOn,
+} from "@/lib/wallet-service";
+import { getDestination, needsBridge } from "@/lib/bridge";
 import { formatUsdc6Short } from "@/lib/money";
 import { db, type Recipient } from "@/lib/domain";
 import { CORRIDORS } from "@/lib/corridors";
@@ -44,6 +50,7 @@ export async function POST(req: NextRequest) {
       name?: string;
       corridorCode?: string;
       contactHandle?: string;
+      destinationCode?: string;
     };
 
     const name = (body.name ?? "").trim();
@@ -78,7 +85,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const destinationCode = (body.destinationCode ?? "ARC").toUpperCase();
+    const destination = getDestination(destinationCode);
+
     const wallet = await createWallet();
+
+    // Cross-chain recipients need an address on the destination network too.
+    // A wallet set gives the same address across EVM chains, so this is
+    // usually identical — but we resolve it rather than assume.
+    let destinationAddress = wallet.address;
+    if (needsBridge(destination.code)) {
+      try {
+        const destWallet = await createWalletOn(destination.circleChain);
+        destinationAddress = destWallet.address;
+      } catch {
+        // Fall back to the Arc address: same wallet set, same EVM address.
+        destinationAddress = wallet.address;
+      }
+    }
+
     const recipient: Recipient = {
       id: `r-${crypto.randomUUID().slice(0, 8)}`,
       name,
@@ -87,6 +112,8 @@ export async function POST(req: NextRequest) {
       claimToken: `claim-${crypto.randomUUID().replace(/-/g, "")}`,
       walletId: wallet.id,
       address: wallet.address,
+      destinationCode: destination.code,
+      destinationAddress,
       createdAt: new Date().toISOString(),
     };
 

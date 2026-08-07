@@ -77,6 +77,10 @@ export function saveRecipient(r: Recipient): void {
     claim_token: r.claimToken,
     circle_wallet_id: r.walletId ?? null,
     address: r.address ?? null,
+    // Load-bearing: the orchestrator branches on this. Omitting it here meant a
+    // cross-chain recipient round-tripped through Postgres and came back as Arc.
+    destination_code: r.destinationCode ?? "ARC",
+    destination_address: r.destinationAddress ?? null,
     chain_id: 5042002,
     created_at: r.createdAt,
   });
@@ -114,6 +118,8 @@ export function saveTransfer(t: Transfer): void {
     circle_transaction_id: t.circleTransactionId ?? null,
     tx_hash: t.txHash ?? null,
     explorer_url: t.explorerUrl ?? null,
+    destination_tx_hash: t.destinationTxHash ?? null,
+    destination_explorer_url: t.destinationExplorerUrl ?? null,
     created_at: t.createdAt,
     delivered_at: t.deliveredAt ?? null,
   });
@@ -156,6 +162,7 @@ export async function hydrate(): Promise<void> {
     type RecipRow = {
       id: string; name: string; corridor_code: string; contact_handle: string;
       claim_token: string; circle_wallet_id: string | null; address: string | null;
+      destination_code: string | null; destination_address: string | null;
       created_at: string;
     };
     for (const r of await select<RecipRow>("recipients?select=*")) {
@@ -167,6 +174,8 @@ export async function hydrate(): Promise<void> {
         claimToken: r.claim_token,
         walletId: r.circle_wallet_id ?? undefined,
         address: r.address ?? undefined,
+        destinationCode: r.destination_code ?? "ARC",
+        destinationAddress: r.destination_address ?? undefined,
         createdAt: r.created_at,
       };
       db.recipients.set(rec.id, rec);
@@ -219,6 +228,8 @@ export async function hydrate(): Promise<void> {
         circleTransactionId: t.circle_transaction_id ?? undefined,
         txHash: t.tx_hash ?? undefined,
         explorerUrl: t.explorer_url ?? undefined,
+        destinationTxHash: t.destination_tx_hash ?? undefined,
+        destinationExplorerUrl: t.destination_explorer_url ?? undefined,
         createdAt: String(t.created_at),
         deliveredAt: t.delivered_at ?? undefined,
       };

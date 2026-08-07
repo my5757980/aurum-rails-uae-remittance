@@ -420,15 +420,15 @@ quote, confirms once, and all 3 payouts settle with individual explorer links.
   - **Acceptance**: `bridge(from, to, amount)` returns both leg hashes; `useForwarder: true`
   - **Est**: 2 h · **Dependencies**: T006, T022 · **Requirement**: FR-031
 
-- [ ] **T078** [US3] Add a destination-chain option to recipient setup
+- [x] **T078** [US3] Add a destination-chain option to recipient setup
   - **Acceptance**: selecting a non-Arc destination sets `destination_chain_id`; unsupported routes are **disabled with a plain-language explanation**, never a silent failure
   - **Est**: 1 h · **Dependencies**: T077, T039 · **Requirement**: US3 AC-3, Constitution II
 
-- [ ] **T079** [US3] Two-leg status timeline with independent explorer links
+- [x] **T079** [US3] Two-leg status timeline with independent explorer links
   - **Acceptance**: `Settling on Arc ✓ → Moving to Base ⟳ → Delivered ✓`, each leg linkable
   - **Est**: 1.5 h · **Dependencies**: T077, T043 · **Requirement**: US3 AC-2
 
-- [ ] **T080** [P] [US3] Combined cross-chain quote — one total to the sender, per-leg detail on expand
+- [x] **T080** [P] [US3] Combined cross-chain quote — one total to the sender, per-leg detail on expand
   - **Acceptance**: sender sees exactly one number; expansion reveals both legs
   - **Est**: 1 h · **Dependencies**: T077, T041 · **Requirement**: US3 AC-1
 

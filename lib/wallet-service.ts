@@ -121,6 +121,26 @@ export async function createWallet(): Promise<WalletInfo> {
   return { id: w.id, address: w.address };
 }
 
+/**
+ * Create a wallet on a specific chain, for cross-chain delivery (US3).
+ *
+ * Deliberately does NOT go through the Arc guard: this is the one path that
+ * legitimately needs another chain. Callers must pass a chain from
+ * `lib/bridge.ts` DESTINATIONS, which is a testnet-only allowlist — that is
+ * where Constitution I's no-mainnet rule is enforced for this path.
+ */
+export async function createWalletOn(circleChain: string): Promise<WalletInfo> {
+  const res = await sdk().createWallets({
+    walletSetId: walletSetId(),
+    blockchains: [circleChain as Blockchain],
+    count: 1,
+    accountType: accountType(),
+  });
+  const w = res.data?.wallets?.[0];
+  if (!w?.id || !w.address) throw new Error(`Circle returned no wallet for ${circleChain}`);
+  return { id: w.id, address: w.address };
+}
+
 /** USDC balance. Uses the dedicated balance endpoint, not getWallet. */
 export async function getUsdcBalance(walletId: string): Promise<Usdc6> {
   const res = await sdk().getWalletTokenBalance({ id: walletId });

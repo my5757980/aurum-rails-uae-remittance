@@ -70,6 +70,10 @@ export interface Recipient {
   claimToken: string;
   walletId?: string;
   address?: string;
+  /** Delivery network. "ARC" (default) needs no bridge. See lib/bridge.ts. */
+  destinationCode?: string;
+  /** Address on the destination chain, when it differs from Arc. */
+  destinationAddress?: string;
   createdAt: string;
 }
 
@@ -115,6 +119,9 @@ export interface Transfer {
   circleTransactionId?: string;
   txHash?: string;
   explorerUrl?: string;
+  /** Second leg, when the recipient is paid on another chain (US3). */
+  destinationTxHash?: string;
+  destinationExplorerUrl?: string;
   createdAt: string;
   deliveredAt?: string;
 }

@@ -19,6 +19,8 @@ interface TransferDto {
   amountUsdc6: string;
   txHash: string | null;
   explorerUrl: string | null;
+  destinationTxHash: string | null;
+  destinationExplorerUrl: string | null;
   createdAt: string;
   deliveredAt: string | null;
   elapsedMs: number | null;
@@ -219,6 +221,18 @@ export default function TransferPage({ params }: { params: Promise<{ id: string 
           className="mb-3 block w-full rounded-xl border border-emerald-400/40 bg-emerald-400/10 py-3 text-center text-sm font-semibold text-emerald-300 transition hover:bg-emerald-400/20"
         >
           View on Arc explorer ↗
+        </a>
+      )}
+
+      {/* US3 — the second leg gets its own link, on its own explorer. */}
+      {data.destinationExplorerUrl && (
+        <a
+          href={data.destinationExplorerUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 block w-full rounded-xl border border-sky-400/40 bg-sky-400/10 py-3 text-center text-sm font-semibold text-sky-300 transition hover:bg-sky-400/20"
+        >
+          View delivery on their network ↗
         </a>
       )}
 

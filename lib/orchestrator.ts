@@ -23,6 +23,7 @@ import {
   getTransactionStatus,
 } from "./wallet-service";
 import { saveTransfer } from "./persist";
+import { bridgeToDestination, destinationExplorerUrl, needsBridge } from "./bridge";
 
 export class TransferError extends Error {
   constructor(
@@ -193,9 +194,43 @@ async function trackToCompletion(
     }
 
     if (mapped === "SETTLED") {
-      // Last mile is simulated and labelled as such throughout (Constitution II).
       appendEvent(transferId, "DELIVERING", correlationId);
-      await new Promise((r) => setTimeout(r, 800));
+
+      // US3 — if the recipient is paid on another chain, bridge before we call
+      // this delivered. A failure here is a real failure: the money settled on
+      // Arc but did not reach them, and saying "Delivered" would be a lie.
+      const recipient = db.recipients.get(transfer.recipientId);
+      if (recipient && needsBridge(recipient.destinationCode)) {
+        try {
+          const sender = await getSenderWallet();
+          const result = await bridgeToDestination({
+            fromAddress: sender.address,
+            toAddress: recipient.destinationAddress ?? recipient.address!,
+            amount: transfer.amountUsdc6,
+            destinationCode: recipient.destinationCode!,
+          });
+          if (result.destinationTxHash) {
+            transfer.destinationTxHash = result.destinationTxHash;
+            transfer.destinationExplorerUrl = destinationExplorerUrl(
+              recipient.destinationCode,
+              result.destinationTxHash,
+            );
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          appendEvent(
+            transferId,
+            "FAILED",
+            correlationId,
+            `Settled on Arc but couldn't reach their network: ${message}`,
+          );
+          return;
+        }
+      } else {
+        // Arc-only: the last mile is simulated and labelled (Constitution II).
+        await new Promise((r) => setTimeout(r, 800));
+      }
+
       transfer.deliveredAt = new Date().toISOString();
       db.transfers.set(transferId, transfer);
       saveTransfer(transfer);

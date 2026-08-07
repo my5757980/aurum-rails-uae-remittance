@@ -9,6 +9,7 @@
 import { formatUsdc6, formatAedFils, formatMinorUnits } from "./money";
 import { formatRate } from "./fx";
 import { getCorridor } from "./corridors";
+import { getDestination, needsBridge } from "./destinations";
 import {
   db,
   STATE_LABELS,
@@ -30,6 +31,9 @@ export const recipientDto = (r: Recipient) => {
     currencySymbol: c.currencySymbol,
     contactHandle: r.contactHandle,
     claimToken: r.claimToken,
+    destinationCode: r.destinationCode ?? "ARC",
+    destinationLabel: getDestination(r.destinationCode).label,
+    isCrossChain: needsBridge(r.destinationCode),
   };
 };
 
@@ -90,6 +94,8 @@ export const transferDto = (t: Transfer, events: StatusEvent[]) => {
     isTerminal: TERMINAL_STATES.has(state),
     txHash: t.txHash ?? null,
     explorerUrl: t.explorerUrl ?? null,
+    destinationTxHash: t.destinationTxHash ?? null,
+    destinationExplorerUrl: t.destinationExplorerUrl ?? null,
     createdAt: t.createdAt,
     deliveredAt: t.deliveredAt ?? null,
     elapsedMs,

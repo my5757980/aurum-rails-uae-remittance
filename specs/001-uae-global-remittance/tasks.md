@@ -78,7 +78,7 @@ transfer has been made on Arc by hand.*
   - **Dependencies**: T003
   - **If it fails**: treasury panel degrades to an Arc-only balance, honestly labelled; Bridge Kit becomes the fourth Circle product (research.md S3)
 
-- [ ] **T006** [P] Verify Bridge Kit accepts Arc Testnet as a source/destination using `@circle-fin/bridge-kit` + `@circle-fin/adapter-circle-wallets` in `scripts/spike-bridge.ts`
+- [x] **T006** [P] Verify Bridge Kit accepts Arc Testnet as a source/destination using `@circle-fin/bridge-kit` + `@circle-fin/adapter-circle-wallets` in `scripts/spike-bridge.ts`
   - **Acceptance**: either a successful Arc→Base Sepolia bridge quote, **or** a written finding in `docs/circle-feedback-notes.md`
   - **Est**: 1 h
   - **Dependencies**: T003
@@ -416,7 +416,7 @@ quote, confirms once, and all 3 payouts settle with individual explorer links.
 
 ### Phase 6 — User Story 3 (only if T006 succeeded and Day 4 is on schedule)
 
-- [ ] **T077** [P] [US3] Implement `lib/bridge.ts` — the **only** Bridge Kit importer
+- [x] **T077** [P] [US3] Implement `lib/bridge.ts` — the **only** Bridge Kit importer
   - **Acceptance**: `bridge(from, to, amount)` returns both leg hashes; `useForwarder: true`
   - **Est**: 2 h · **Dependencies**: T006, T022 · **Requirement**: FR-031
 
@@ -432,7 +432,7 @@ quote, confirms once, and all 3 payouts settle with individual explorer links.
   - **Acceptance**: sender sees exactly one number; expansion reveals both legs
   - **Est**: 1 h · **Dependencies**: T077, T041 · **Requirement**: US3 AC-1
 
-- [ ] **T081** [US3] Record the outcome (success or limitation) in `docs/circle-feedback-notes.md`
+- [x] **T081** [US3] Record the outcome (success or limitation) in `docs/circle-feedback-notes.md`
   - **Acceptance**: reproducible detail — SDK version, chain pair, exact error if any
   - **Est**: 30 min · **Dependencies**: T077 · **Requirement**: SC-016
 

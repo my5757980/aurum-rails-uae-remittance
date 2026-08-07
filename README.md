@@ -130,8 +130,8 @@ sequenceDiagram
 |---|---|---|
 | **USDC on Arc Testnet** | Settlement rail. USDC is also the **native gas asset** on Arc, so network cost and payment are the same unit — which is what makes a single honest fee number possible. | `lib/chain.ts`, `lib/money.ts` |
 | **Circle Wallets** (Developer-Controlled) | Wallet per sender and per recipient, provisioned server-side. **This is what removes seed phrases and browser extensions** — the reason a non-crypto-native persona can use this at all. | `lib/wallet-service.ts` |
-| **Circle Gateway** | Unified USDC balance across chains for treasury routing. | `lib/wallet-service.ts`, `app/api/recipients/route.ts` |
-| **CCTP / App Kit** | Cross-chain USDC delivery when the recipient isn't on Arc. Inherited wiring: `@circle-fin/app-kit` + `@circle-fin/adapter-circle-wallets`. | `lib/circle/app-kit-client.ts`, `lib/chains.ts` |
+| **Circle Gateway** | Treasury balance for the business payout surface. Gateway returns no balance for a wallet that has not *deposited* into the Gateway Wallet contract, so we fall back to real Arc balances and label the source **"ARC ONLY"** rather than invent a unified figure. | `lib/treasury.ts`, `app/api/treasury/route.ts` |
+| **CCTP v2 / App Kit** | Cross-chain USDC delivery, **verified working**: Arc Testnet → Base Sepolia, `transferSpeed: FAST`, `approve → burn → fetchAttestation → mint`, all four steps with real transaction hashes. | `scripts/spike-bridge.ts`, `lib/circle/app-kit-client.ts` |
 
 Only three modules may import a Circle SDK. Everything else is walled off so no
 credential can reach the browser.
@@ -297,12 +297,15 @@ Built in a 5-day sprint under a spec-driven workflow. Artifacts in
 spec, plan, research, data model, API contracts, task list.
 
 **Shipped:** hero remittance flow end-to-end on Arc · full fee/rate/status transparency ·
-live status timeline · receipts with explorer links · recipient claim view · mobile-first
-responsive UI · branded money types with unit tests.
+live status timeline · receipts with explorer links · recipient claim view · add/manage
+recipients · transfer history with one-tap repeat · **batch payouts with independent
+per-item settlement** · treasury panel · **cross-chain bridge verified Arc → Base Sepolia**
+· Supabase persistence · mobile-first responsive UI · branded money types with unit tests.
 
-**Not shipped:** batch payouts (User Story 2), cross-chain delivery (User Story 3),
-Supabase persistence (the store is in-memory — the hero path was the priority),
-authentication.
+**Not shipped:** end-user authentication (the demo runs as a single operator), Gateway
+*deposits* (so the treasury shows Arc-only balances, labelled as such), cross-chain
+delivery wired into the send flow — the bridge is proven by script but not yet a
+user-facing option.
 
 **Provenance:** forked from [`circlefin/arc-commerce`](https://github.com/circlefin/arc-commerce)
 @ `1a3a5e0`, Apache-2.0. Full delta in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).

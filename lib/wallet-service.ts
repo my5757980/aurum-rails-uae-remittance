@@ -69,13 +69,43 @@ export async function listWallets(): Promise<WalletInfo[]> {
     .sort((a, b) => a.address.localeCompare(b.address));
 }
 
-/** The demo treasury / sender wallet: the first wallet by address. */
+/**
+ * The demo treasury wallet — the one payments are sent FROM.
+ *
+ * An earlier version returned `wallets[0]` sorted by address. That was a real
+ * bug: adding a recipient mints a new wallet, which can sort ahead of the funded
+ * one, silently making an empty wallet the treasury and dropping the visible
+ * balance to zero. Selection must not depend on how many recipients exist.
+ *
+ * Resolution order:
+ *   1. CIRCLE_TREASURY_WALLET_ID, if pinned — deterministic, preferred.
+ *   2. Otherwise the wallet holding the most USDC. Self-healing, so a judge who
+ *      funds any address from the faucet gets a working demo without editing env.
+ */
 export async function getSenderWallet(): Promise<WalletInfo> {
   const wallets = await listWallets();
   if (!wallets.length) {
     throw new Error("No wallets found in the wallet set. Run: npm run spike:send");
   }
-  return wallets[0]!;
+
+  const pinned = process.env.CIRCLE_TREASURY_WALLET_ID;
+  if (pinned) {
+    const match = wallets.find((w) => w.id === pinned);
+    if (match) return match;
+    // Pinned but missing: fall through rather than fail the whole app.
+  }
+
+  const balances = await Promise.all(
+    wallets.map(async (w) => ({ wallet: w, balance: await getUsdcBalance(w.id) })),
+  );
+  balances.sort((a, b) =>
+    (b.balance as bigint) > (a.balance as bigint)
+      ? 1
+      : (b.balance as bigint) < (a.balance as bigint)
+        ? -1
+        : 0,
+  );
+  return balances[0]!.wallet;
 }
 
 /** Create a fresh wallet, e.g. for a new recipient. */

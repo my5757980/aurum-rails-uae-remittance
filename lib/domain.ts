@@ -123,6 +123,20 @@ export interface Transfer {
 // Store
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type RunState = "DRAFT" | "EXECUTING" | "COMPLETED" | "PARTIALLY_FAILED";
+
+export interface PayoutRun {
+  id: string;
+  transferIds: string[];
+  /** Recipients we could not even start, with the reason why. */
+  failures: Array<{ recipientId: string; reason: string }>;
+  totalUsdc6: bigint;
+  totalFeeUsdc6: bigint;
+  state: RunState;
+  idempotencyKey: string;
+  createdAt: string;
+}
+
 interface Db {
   recipients: Map<string, Recipient>;
   quotes: Map<string, Quote>;
@@ -130,6 +144,7 @@ interface Db {
   events: Map<string, StatusEvent[]>;
   idempotency: Map<string, string>;
   claimTokens: Map<string, string>;
+  payoutRuns: Map<string, PayoutRun>;
 }
 
 // Survives hot-reload in dev by hanging off globalThis.
@@ -144,6 +159,7 @@ export const db: Db =
     events: new Map(),
     idempotency: new Map(),
     claimTokens: new Map(),
+    payoutRuns: new Map(),
   });
 
 /**

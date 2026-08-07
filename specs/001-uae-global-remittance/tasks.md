@@ -72,7 +72,7 @@ transfer has been made on Arc by hand.*
   - **Dependencies**: T003 (need addresses first)
   - **Risk**: R2 — the faucet gives 20 USDC/address every 2h (VERIFIED). Under-funding here surfaces as a dead demo on Day 5
 
-- [ ] **T005** 🔴 **BLOCKING SPIKE** Verify Circle Gateway on Arc Testnet — read a unified balance for the wallet set against `https://gateway-api-testnet.circle.com/v1/`
+- [x] **T005** 🔴 **BLOCKING SPIKE** Verify Circle Gateway on Arc Testnet — read a unified balance for the wallet set against `https://gateway-api-testnet.circle.com/v1/`
   - **Acceptance**: a unified balance response is received including an Arc Testnet (domain 26) entry
   - **Est**: 1 h
   - **Dependencies**: T003
@@ -154,11 +154,11 @@ transfer has been made on Arc by hand.*
   - **Acceptance**: creates `ARC-TESTNET` **EOA** wallets; uses the dedicated balance endpoint (**not** `getWallet`); every mutation passes a UUID v4 `idempotencyKey`
   - **Est**: 2 h · **Dependencies**: T003, T014, T016, T017 · **Requirement**: FR-002–004, FR-014
 
-- [ ] **T023** [P] Implement `lib/errors.ts` — the error taxonomy from `contracts/openapi.yaml` with correlation-ID generation
+- [x] **T023** [P] Implement `lib/errors.ts` — the error taxonomy from `contracts/openapi.yaml` with correlation-ID generation
   - **Acceptance**: every code in the OpenAPI enum has a user-safe message; no raw provider error text can pass through
   - **Est**: 45 min · **Dependencies**: T012 · **Requirement**: FR-019, NFR-025
 
-- [ ] **T024** [P] Implement `lib/logger.ts` — structured logs with correlation ID, operation, outcome, duration; secrets redacted
+- [x] **T024** [P] Implement `lib/logger.ts` — structured logs with correlation ID, operation, outcome, duration; secrets redacted
   - **Acceptance**: a log line containing an API key is redacted by a unit test
   - **Est**: 45 min · **Dependencies**: T023 · **Requirement**: FR-030
 
@@ -166,7 +166,7 @@ transfer has been made on Arc by hand.*
   - **Acceptance**: returns rate + source + timestamp; marks stale on fetch failure and never invents a rate
   - **Est**: 1 h · **Dependencies**: T014 · **Requirement**: NFR-007, E7, FR-039
 
-- [ ] **T026** [P] Write `tests/unit/fx.test.ts` — conversion, peg, staleness
+- [x] **T026** [P] Write `tests/unit/fx.test.ts` — conversion, peg, staleness
   - **Acceptance**: asserts a failed fetch yields `is_stale = true`, never a fabricated rate
   - **Est**: 30 min · **Dependencies**: T025 · **Constitution**: mandated minimum
 
@@ -218,7 +218,7 @@ sends AED 5.00, and both sender and recipient see a settled transfer with a work
   - **Acceptance**: returns `TransferDetail` with ordered status events; 404 for another user's transfer
   - **Est**: 45 min · **Dependencies**: T029, T020
 
-- [ ] **T035** [US1] Adapt the inherited Circle webhook receiver at `app/api/webhooks/circle/route.ts` to drive `status.ts`
+- [x] **T035** [US1] Adapt the inherited Circle webhook receiver at `app/api/webhooks/circle/route.ts` to drive `status.ts`
   - **Acceptance**: signature verified before any state change; invalid signature → 401 with **no** side effects; valid webhook appends a status event with tx hash and explorer URL
   - **Est**: 1.5 h · **Dependencies**: T029, T001 · **Requirement**: FR-015, FR-017
 
@@ -234,7 +234,7 @@ sends AED 5.00, and both sender and recipient see a settled transfer with a work
   - **Acceptance**: a new user has an `ARC-TESTNET` wallet row; the UI shows "Setting up your account", never "generating wallet"
   - **Est**: 1 h · **Dependencies**: T022, T037 · **Requirement**: FR-002, FR-003
 
-- [ ] **T039** [P] [US1] Build recipient CRUD in `app/recipients/` with duplicate detection
+- [x] **T039** [P] [US1] Build recipient CRUD in `app/recipients/` with duplicate detection
   - **Acceptance**: creating a same-name-same-country recipient offers a merge instead of silently duplicating
   - **Est**: 1.5 h · **Dependencies**: T019, T037 · **Requirement**: FR-005, FR-006, E12
 
@@ -306,7 +306,7 @@ verify on the deployed URL.** From this point `main` must never be left broken o
   - **Acceptance**: insufficient balance blocks **pre-submission** with a funding action; expired quote offers refresh; below-minimum states the minimum in AED and USD
   - **Est**: 1 h · **Dependencies**: T033, T041 · **Requirement**: FR-019, NFR-021
 
-- [ ] **T054** [P] [US1] Repeat-send shortcut on the home screen
+- [x] **T054** [P] [US1] Repeat-send shortcut on the home screen
   - **Acceptance**: a returning user completes a repeat send in **≤ 3 taps**
   - **Est**: 1 h · **Dependencies**: T040 · **Requirement**: FR-007, SC-003
 
@@ -365,36 +365,36 @@ If you are behind, cut User Story 2 — **not** the README.
 **US2 independent test**: a business user selects 3 contractors, reviews one aggregate
 quote, confirms once, and all 3 payouts settle with individual explorer links.
 
-- [ ] **T065** [US2] Implement `lib/treasury.ts` — the **only** Gateway importer; unified balance + per-chain composition
+- [x] **T065** [US2] Implement `lib/treasury.ts` — the **only** Gateway importer; unified balance + per-chain composition
   - **Acceptance**: returns `TreasuryBalance` per the OpenAPI contract; cached 30 s
   - **Est**: 2 h · **Dependencies**: T005, T017 · **Requirement**: FR-026, risk R4
   - **If T005 failed**: return an Arc-only balance with an honest "Arc only" label
 
-- [ ] **T066** [P] [US2] Implement `GET /api/treasury` in `app/api/treasury/route.ts`
+- [x] **T066** [P] [US2] Implement `GET /api/treasury` in `app/api/treasury/route.ts`
   - **Acceptance**: matches contract; sets `isLowBalance` per `TREASURY_LOW_BALANCE_USDC`
   - **Est**: 45 min · **Dependencies**: T065
 
-- [ ] **T067** [US2] Implement `POST /api/payout-runs` in `app/api/payout-runs/route.ts` — fans out over `orchestrator.executeTransfer`
+- [x] **T067** [US2] Implement `POST /api/payout-runs` in `app/api/payout-runs/route.ts` — fans out over `orchestrator.executeTransfer`
   - **Acceptance**: items settle and fail **independently**; a single failure never rolls back siblings; run reports `PARTIALLY_FAILED` accurately
   - **Est**: 2 h · **Dependencies**: T031, T019 · **Requirement**: FR-023, FR-025, E11, NFR-022
 
-- [ ] **T068** [P] [US2] Batch quote support in `lib/quote-engine.ts` — per-payee and aggregate
+- [x] **T068** [P] [US2] Batch quote support in `lib/quote-engine.ts` — per-payee and aggregate
   - **Acceptance**: aggregate fee equals the exact sum of per-payee fees in minor units
   - **Est**: 1 h · **Dependencies**: T027 · **Requirement**: FR-024
 
-- [ ] **T069** [US2] Build the business surface at `app/business/page.tsx` — payee list and batch composer
+- [x] **T069** [US2] Build the business surface at `app/business/page.tsx` — payee list and batch composer
   - **Acceptance**: same account, different view; select ≥3 payees with per-payee amounts
   - **Est**: 2 h · **Dependencies**: T039, T068 · **Requirement**: FR-023
 
-- [ ] **T070** [US2] Build `components/TreasuryPanel.tsx` — unified balance with expandable per-chain split
+- [x] **T070** [US2] Build `components/TreasuryPanel.tsx` — unified balance with expandable per-chain split
   - **Acceptance**: states plainly whether the run is covered; per-chain composition sums to the unified total
   - **Est**: 1.5 h · **Dependencies**: T066, T069 · **Requirement**: FR-026
 
-- [ ] **T071** [US2] Build the live batch grid — per-item status, per-item explorer link, per-item retry
+- [x] **T071** [US2] Build the live batch grid — per-item status, per-item explorer link, per-item retry
   - **Acceptance**: 3 payouts advance independently via Realtime; a failed item retries without touching the others
   - **Est**: 2 h · **Dependencies**: T067, T043 · **Requirement**: FR-025, E11
 
-- [ ] **T072** [P] [US2] Per-contractor receipts carrying the invoice reference
+- [x] **T072** [P] [US2] Per-contractor receipts carrying the invoice reference
   - **Acceptance**: each receipt shows its `invoice_ref`
   - **Est**: 45 min · **Dependencies**: T071 · **Requirement**: FR-023
 

@@ -69,6 +69,7 @@ sb-*.json
 supabase-*.png
 app-*.png
 arc-tx-*.png
+ui-*.png
 dev*.log
 
 # vercel

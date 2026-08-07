@@ -9,6 +9,7 @@
 import "server-only";
 import { db, type Recipient } from "./domain";
 import { createWallet, listWallets } from "./wallet-service";
+import { hydrate, saveRecipient } from "./persist";
 
 const SEED: Array<Omit<Recipient, "walletId" | "address" | "createdAt">> = [
   {
@@ -37,6 +38,9 @@ const SEED: Array<Omit<Recipient, "walletId" | "address" | "createdAt">> = [
 let seeding: Promise<void> | null = null;
 
 export async function ensureSeeded(): Promise<void> {
+  // Restore anything a previous run persisted before deciding to seed.
+  await hydrate();
+
   if (db.recipients.size > 0) return;
   if (seeding) return seeding;
 
@@ -60,6 +64,7 @@ export async function ensureSeeded(): Promise<void> {
       };
       db.recipients.set(recipient.id, recipient);
       db.claimTokens.set(recipient.claimToken, recipient.id);
+      saveRecipient(recipient);
     }
   })();
 

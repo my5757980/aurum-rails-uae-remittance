@@ -62,6 +62,14 @@ spike-output*.json
 .playwright-mcp/
 circle-*.png
 console-*.log
+# Supabase / browser-automation captures — these can contain API keys.
+sb-*.png
+sb-*.txt
+sb-*.json
+supabase-*.png
+app-*.png
+arc-tx-*.png
+dev*.log
 
 # vercel
 .vercel

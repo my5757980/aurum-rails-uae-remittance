@@ -146,6 +146,19 @@ export const db: Db =
     claimTokens: new Map(),
   });
 
+/**
+ * Persistence hook.
+ *
+ * `lib/persist.ts` imports this module, so this module cannot import it back.
+ * Instead persist registers itself here at load time. Keeps the dependency
+ * one-directional and lets the app run with no database at all.
+ */
+type EventHook = (event: StatusEvent) => void;
+let eventHook: EventHook | null = null;
+export const setEventHook = (hook: EventHook): void => {
+  eventHook = hook;
+};
+
 export function appendEvent(
   transferId: string,
   toState: TransferState,
@@ -170,6 +183,7 @@ export function appendEvent(
     correlationId,
   };
   db.events.set(transferId, [...existing, event]);
+  eventHook?.(event);
   return event;
 }
 

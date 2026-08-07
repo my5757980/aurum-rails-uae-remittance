@@ -24,6 +24,7 @@ import {
 import { getRate } from "./fx";
 import { getCorridor } from "./corridors";
 import { db, type Quote, type Recipient, type FeeBreakdown } from "./domain";
+import { saveQuote } from "./persist";
 
 /** Observed Arc network cost. Tiny because USDC is the native gas asset. */
 const NETWORK_FEE_USDC6: Usdc6 = usdc6(300n); // 0.000300 USDC
@@ -120,6 +121,7 @@ export async function createQuote(
   };
 
   db.quotes.set(quote.id, quote);
+  saveQuote(quote);
   return quote;
 }
 

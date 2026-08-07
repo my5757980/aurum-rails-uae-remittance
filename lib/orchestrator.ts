@@ -22,6 +22,7 @@ import {
   submitTransfer,
   getTransactionStatus,
 } from "./wallet-service";
+import { saveTransfer } from "./persist";
 
 export class TransferError extends Error {
   constructor(
@@ -122,6 +123,7 @@ export async function executeTransfer(
   };
   db.transfers.set(transfer.id, transfer);
   db.idempotency.set(idempotencyKey, transfer.id);
+  saveTransfer(transfer);
 
   appendEvent(transfer.id, "INITIATED", correlationId);
 
@@ -134,6 +136,7 @@ export async function executeTransfer(
     });
     transfer.circleTransactionId = circleTransactionId;
     db.transfers.set(transfer.id, transfer);
+    saveTransfer(transfer);
     appendEvent(transfer.id, "SUBMITTED", correlationId);
 
     // Drive to a terminal state in the background; the UI polls our own API.
@@ -176,6 +179,7 @@ async function trackToCompletion(
       transfer.txHash = status.txHash;
       transfer.explorerUrl = explorerTxUrl(status.txHash);
       db.transfers.set(transferId, transfer);
+      saveTransfer(transfer);
     }
 
     if (mapped !== last) {
@@ -194,6 +198,7 @@ async function trackToCompletion(
       await new Promise((r) => setTimeout(r, 800));
       transfer.deliveredAt = new Date().toISOString();
       db.transfers.set(transferId, transfer);
+      saveTransfer(transfer);
       appendEvent(transferId, "DELIVERED", correlationId);
       return;
     }

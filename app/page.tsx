@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SimulatedBadge } from "@/components/SimulatedBadge";
 import { SidePanel } from "@/components/SidePanel";
+import { AddRecipient } from "@/components/AddRecipient";
+import { History } from "@/components/History";
 
 interface Recipient {
   id: string;
@@ -52,30 +54,47 @@ export default function SendPage() {
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const loadRecipients = useCallback(async (selectId?: string) => {
+    try {
+      const res = await fetch("/api/recipients");
+      const json = await res.json();
+      if (!res.ok) {
+        setLoadError(json.message ?? "Couldn't load your contacts.");
+        return;
+      }
+      setRecipients(json.recipients);
+      setBalance(json.balanceUsdc);
+      setLowBalance(json.lowBalance);
+      setSelected((current) => {
+        if (selectId) {
+          return json.recipients?.find((r: Recipient) => r.id === selectId) ?? current;
+        }
+        return current ?? json.recipients?.[0] ?? null;
+      });
+    } catch {
+      setLoadError("Couldn't reach the server.");
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/recipients");
-        const json = await res.json();
-        if (cancelled) return;
-        if (!res.ok) {
-          setLoadError(json.message ?? "Couldn't load your contacts.");
-          return;
-        }
-        setRecipients(json.recipients);
-        setBalance(json.balanceUsdc);
-        setLowBalance(json.lowBalance);
-        setSelected(json.recipients?.[0] ?? null);
-      } catch {
-        if (!cancelled) setLoadError("Couldn't reach the server.");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadRecipients();
+  }, [loadRecipients]);
+
+  /** FR-007 — repeat a past payment in one tap. */
+  const repeat = useCallback(
+    (recipientId: string, aed: string) => {
+      setRecipients((rs) => {
+        const found = rs?.find((r) => r.id === recipientId);
+        if (found) setSelected(found);
+        return rs;
+      });
+      setAmount(aed);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [],
+  );
 
   // FR-008: full disclosure must exist before confirm is enabled.
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -244,6 +263,7 @@ export default function SendPage() {
                 </button>
               );
             })}
+            <AddRecipient onAdded={(id) => void loadRecipients(id)} />
           </div>
         )}
       </section>
@@ -388,6 +408,8 @@ export default function SendPage() {
       <p className="mt-4 text-center text-[11px] leading-relaxed text-slate-600">
         Settled in USDC on Arc Testnet. Every payment is verifiable on the public explorer.
       </p>
+
+      <History onRepeat={repeat} refreshKey={refreshKey} />
       </main>
     </div>
   );

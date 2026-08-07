@@ -1,9 +1,43 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { executeTransfer, TransferError } from "@/lib/orchestrator";
-import { getEvents } from "@/lib/domain";
-import { transferDto } from "@/lib/serialize";
+import { db, getEvents } from "@/lib/domain";
+import { transferDto, recipientDto } from "@/lib/serialize";
+import { ensureSeeded } from "@/lib/seed";
+import { formatAedFils, formatMinorUnits } from "@/lib/money";
+import { getCorridor } from "@/lib/corridors";
 
 export const dynamic = "force-dynamic";
+
+/** Transfer history, newest first (FR-033). */
+export async function GET() {
+  await ensureSeeded();
+
+  const transfers = [...db.transfers.values()]
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 50)
+    .map((t) => {
+      const recipient = db.recipients.get(t.recipientId);
+      const quote = db.quotes.get(t.quoteId);
+      return {
+        ...transferDto(t, getEvents(t.id)),
+        events: undefined, // the list view doesn't need the full timeline
+        recipient: recipient ? recipientDto(recipient) : null,
+        sendAed: quote ? formatAedFils(quote.sendAed) : null,
+        landed: quote
+          ? {
+              amount: formatMinorUnits(
+                quote.landedAmount,
+                getCorridor(recipient?.corridorCode ?? "IN").decimals,
+              ),
+              currency: quote.landedCurrency,
+              symbol: getCorridor(recipient?.corridorCode ?? "IN").currencySymbol,
+            }
+          : null,
+      };
+    });
+
+  return NextResponse.json({ transfers });
+}
 
 export async function POST(req: NextRequest) {
   const correlationId = crypto.randomUUID();

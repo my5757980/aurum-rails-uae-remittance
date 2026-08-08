@@ -72,6 +72,10 @@ arc-tx-*.png
 ui-*.png
 dev*.log
 
+# Raw silent screen capture. The narrated, edited version is uploaded and linked
+# from the README — a 6MB binary does not belong in git history.
+/demo-video/
+
 # vercel
 .vercel
 

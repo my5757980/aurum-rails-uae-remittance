@@ -165,7 +165,12 @@ would not be the number on the explorer. Small real amounts, perfectly reconcila
 ### Prerequisites
 - **Node.js 22+**
 - A **Circle developer account** ([console.circle.com](https://console.circle.com)) — free
-- No Docker, no database, no crypto wallet required
+- No Docker, no crypto wallet, no browser extension required
+
+**On the database:** payments persist to **PostgreSQL**, hosted on
+[Supabase](https://supabase.com) (free tier). It is **optional** — with no database
+configured the app runs entirely in memory and every flow still works; you just lose
+history when the server restarts. Skip step 4 if you only want to see it run.
 
 ### 1. Install
 ```bash
@@ -195,10 +200,29 @@ Fund it at [faucet.circle.com](https://faucet.circle.com) → **Arc Testnet** (g
 per address every 2 hours), add the printed `CIRCLE_WALLET_SET_ID` to `.env.local`, then
 run it again. It will move real USDC and print an explorer link.
 
-### 4. Run
+### 4. Database — optional
+Skip this and the app runs in memory; every flow still works, history just does not
+survive a restart.
+
+1. Create a free project at [supabase.com](https://supabase.com)
+2. From **Settings → API**, copy the project URL, the `anon` key and the `service_role`
+   key into `.env.local`
+3. Apply the schema:
+
+```bash
+npm run db:migrate
+```
+
+If the pooler host is unreachable from your network, paste
+`supabase/migrations/*.sql` into the Supabase **SQL Editor** instead — same result.
+
+### 5. Run
 ```bash
 npm run dev     # http://localhost:3000
 ```
+
+Sign in with **"Try the demo — no sign-up"**. That skips the email step, which matters
+because Supabase's free tier rate-limits signup email at 2/hour.
 
 ### Verify it works
 ```bash

@@ -98,7 +98,7 @@ transfer has been made on Arc by hand.*
   - **Acceptance**: script exits non-zero on a planted test secret
   - **Est**: 30 min · **Dependencies**: none
 
-- [ ] **T010** [P] Write `scripts/check-copy.ts` — fails on banned terms (gas, seed phrase, private key, RPC, chain, nonce, approve, sign, blockchain, crypto) in `app/**` excluding `components/TechnicalDetails.tsx`
+- [x] **T010** [P] Write `scripts/check-copy.ts` — fails on banned terms (gas, seed phrase, private key, RPC, chain, nonce, approve, sign, blockchain, crypto) in `app/**` excluding `components/TechnicalDetails.tsx`
   - **Acceptance**: script exits non-zero on a planted banned term
   - **Est**: 45 min · **Dependencies**: none · **Requirement**: NFR-017, SC-007
 
@@ -198,7 +198,7 @@ sends AED 5.00, and both sender and recipient see a settled transfer with a work
   - **Acceptance**: maps all 8 Circle states; `STUCK → PENDING_RETRY`; no path writes a mutable status column
   - **Est**: 1.5 h · **Dependencies**: T019, T023 · **Requirement**: FR-015
 
-- [ ] **T030** [P] [US1] Write `tests/unit/state-machine.test.ts` covering **every** transition in data-model.md
+- [x] **T030** [P] [US1] Write `tests/unit/state-machine.test.ts` covering **every** transition in data-model.md
   - **Acceptance**: all legal transitions pass, all illegal ones are rejected; asserts `NEEDS_REVIEW` never leads to a resubmission
   - **Est**: 1 h · **Dependencies**: T029 · **Constitution**: mandated minimum
 
@@ -222,11 +222,11 @@ sends AED 5.00, and both sender and recipient see a settled transfer with a work
   - **Acceptance**: signature verified before any state change; invalid signature → 401 with **no** side effects; valid webhook appends a status event with tx hash and explorer URL
   - **Est**: 1.5 h · **Dependencies**: T029, T001 · **Requirement**: FR-015, FR-017
 
-- [ ] **T036** [US1] Implement the 90-second `NEEDS_REVIEW` sweeper in `lib/reconcile.ts`
+- [x] **T036** [US1] Implement the 90-second `NEEDS_REVIEW` sweeper in `lib/reconcile.ts`
   - **Acceptance**: a transfer with no webhook after 90 s moves to `NEEDS_REVIEW`; reconciles by tx hash via `getTransaction`; **never resubmits**
   - **Est**: 1 h · **Dependencies**: T031, T035 · **Requirement**: E6, NFR-023, risk R10
 
-- [ ] **T037** [P] [US1] Adapt auth to email + OTP in `app/(auth)/`
+- [x] **T037** [P] [US1] Adapt auth to email + OTP in `app/(auth)/`
   - **Acceptance**: signup → signed in in < 60 s; no password field anywhere
   - **Est**: 1 h · **Dependencies**: T013 · **Requirement**: FR-001
 
@@ -274,11 +274,11 @@ verify on the deployed URL.** From this point `main` must never be left broken o
 
 *Phase 4 — User Story 1 completion + **documentation, which ships before User Story 2**.*
 
-- [ ] **T046** [P] [US1] Build `components/TechnicalDetails.tsx` — a collapsed `<details>` holding addresses, hashes, chain id
+- [x] **T046** [P] [US1] Build `components/TechnicalDetails.tsx` — a collapsed `<details>` holding addresses, hashes, chain id
   - **Acceptance**: collapsed by default; the **only** place in the app where an address appears
   - **Est**: 45 min · **Dependencies**: T044 · **Requirement**: FR-003, NFR-017
 
-- [ ] **T047** [US1] Run `scripts/check-copy.ts` and remove every banned term from the default path
+- [x] **T047** [US1] Run `scripts/check-copy.ts` and remove every banned term from the default path
   - **Acceptance**: script exits 0; a manual read of the send flow finds no crypto vocabulary
   - **Est**: 1.5 h · **Dependencies**: T041, T043, T046 · **Requirement**: NFR-017, SC-007
 
@@ -286,7 +286,7 @@ verify on the deployed URL.** From this point `main` must never be left broken o
   - **Acceptance**: no horizontal scroll anywhere; all controls tappable; verified in devtools at 375×667
   - **Est**: 2 h · **Dependencies**: T041, T043, T044 · **Requirement**: NFR-016, SC-009
 
-- [ ] **T049** [P] [US1] Add explicit loading / empty / success / error states to every async action
+- [x] **T049** [P] [US1] Add explicit loading / empty / success / error states to every async action
   - **Acceptance**: no control can be left frozen; every state is reachable in manual testing
   - **Est**: 1.5 h · **Dependencies**: T040, T043 · **Requirement**: NFR-018
 
@@ -314,11 +314,11 @@ verify on the deployed URL.** From this point `main` must never be left broken o
   - **Acceptance**: one command produces a state where the hero flow is immediately runnable
   - **Est**: 1.5 h · **Dependencies**: T022, T039 · **Requirement**: FR-037
 
-- [ ] **T056** [P] Write `scripts/demo-reset.ts` — restores a known-good state
+- [x] **T056** [P] Write `scripts/demo-reset.ts` — restores a known-good state
   - **Acceptance**: runs green from a clean database; documented in the README
   - **Est**: 1 h · **Dependencies**: T055 · **Requirement**: FR-029, SC-017
 
-- [ ] **T057** [P] Write `scripts/fund-treasury.ts` + low-balance banner (E2)
+- [x] **T057** [P] Write `scripts/fund-treasury.ts` + low-balance banner (E2)
   - **Acceptance**: banner appears below `TREASURY_LOW_BALANCE_USDC`; message is "Demo funds low — reset the demo", never a raw failure
   - **Est**: 1 h · **Dependencies**: T022 · **Requirement**: E2, risk R2
 
@@ -342,7 +342,7 @@ verify on the deployed URL.** From this point `main` must never be left broken o
   - **Acceptance**: all four products mapped to real paths that exist
   - **Est**: 45 min · **Dependencies**: T061 · **Requirement**: FR-044, SC-008
 
-- [ ] **T063** [P] 📄 Add the **What Is Real vs. Simulated** table to the README, leading with the landed amount
+- [x] **T063** [P] 📄 Add the **What Is Real vs. Simulated** table to the README, leading with the landed amount
   - **Acceptance**: every simulated element in the product appears in the table
   - **Est**: 30 min · **Dependencies**: T061 · **Requirement**: NFR-008, SC-011
 
@@ -398,19 +398,19 @@ quote, confirms once, and all 3 payouts settle with individual explorer links.
   - **Acceptance**: each receipt shows its `invoice_ref`
   - **Est**: 45 min · **Dependencies**: T071 · **Requirement**: FR-023
 
-- [ ] **T073** [P] [US2] CSV export of a payout run
+- [x] **T073** [P] [US2] CSV export of a payout run
   - **Acceptance**: downloadable CSV with amounts, fees, statuses, tx hashes
   - **Est**: 45 min · **Dependencies**: T071 · **Requirement**: FR-034
 
-- [ ] **T074** [P] [US2] Extend `scripts/demo-seed.ts` with a business user and 3 payees
+- [x] **T074** [P] [US2] Extend `scripts/demo-seed.ts` with a business user and 3 payees
   - **Acceptance**: US2 is demoable immediately after seeding
   - **Est**: 30 min · **Dependencies**: T055, T069
 
-- [ ] **T075** [P] Corridor presets (India, Pakistan, Philippines, Egypt, Bangladesh) with correct currency formatting
+- [x] **T075** [P] Corridor presets (India, Pakistan, Philippines, Egypt, Bangladesh) with correct currency formatting
   - **Acceptance**: ₹ / ₨ / ₱ / £E / ৳ render with correct locale grouping
   - **Est**: 1 h · **Dependencies**: T039 · **Requirement**: FR-036, NFR-020
 
-- [ ] **T076** [P] Comparison panel — "Exchange house: AED 15 + ~1.5% spread, 2–3 days · This: AED 1.00, 5 seconds"
+- [x] **T076** [P] Comparison panel — "Exchange house: AED 15 + ~1.5% spread, 2–3 days · This: AED 1.00, 5 seconds"
   - **Acceptance**: every comparison input carries a **cited source and date**; no unsourced claim appears
   - **Est**: 1 h · **Dependencies**: T041 · **Requirement**: FR-032, §9.3 anti-goals
 

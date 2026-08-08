@@ -6,7 +6,7 @@
  * would reintroduce exactly the bug `lib/money.ts` exists to prevent (FR-018).
  */
 
-import { formatUsdc6, formatAedFils, formatMinorUnits } from "./money";
+import { formatUsdc6, formatUsdc6Short, formatAedFils, formatMinorUnits } from "./money";
 import { formatRate } from "./fx";
 import { getCorridor } from "./corridors";
 import { getDestination, needsBridge } from "./destinations";
@@ -50,8 +50,14 @@ export const quoteDto = (q: Quote) => {
       service: formatUsdc6(q.fees.serviceUsdc6),
       total: formatUsdc6(q.fees.totalUsdc6),
       totalAed: formatAedFils(q.fees.totalAed),
+      // FR-009 — every fee shown in BOTH currencies. USDC is 1:1 with USD, but
+      // "USD 0.27" is a number Persona A recognises and "0.269571 USDC" is not.
+      totalUsd: formatUsdc6Short(q.fees.totalUsdc6),
+      networkUsd: formatUsdc6Short(q.fees.networkUsdc6),
+      serviceUsd: formatUsdc6Short(q.fees.serviceUsdc6),
       spreadBps: q.fees.spreadBps,
     },
+    sendUsd: formatUsdc6Short(q.sendUsdc6),
     rate: {
       value: formatRate(q.rate),
       pair: `1 AED = ${formatRate(q.rate)} ${q.rate.quote}`,

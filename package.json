@@ -18,7 +18,8 @@
     "treasury:address": "tsx scripts/treasury-address.ts",
     "verify:foundation": "npm run typecheck && npm run test",
     "db:migrate": "tsx scripts/db-migrate.ts",
-    "spike:bridge": "tsx scripts/spike-bridge.ts"
+    "spike:bridge": "tsx scripts/spike-bridge.ts",
+    "demo:reset": "tsx scripts/demo-reset.ts"
   },
   "dependencies": {
     "@circle-fin/adapter-circle-wallets": "^1.3.2",

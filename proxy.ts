@@ -1,63 +1,52 @@
+import { NextResponse, type NextRequest } from "next/server";
+
 /**
- * Copyright 2025 Circle Internet Group, Inc.  All rights reserved.
+ * Route protection (FR-001).
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Next 16 uses `proxy.ts` for this; a `middleware.ts` alongside it is a build
+ * error. The upstream Circle sample shipped a proxy that redirected everything
+ * to `/dashboard`, which this build no longer has — that surface belonged to the
+ * credit-purchase app we replaced.
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * Presence of the session cookie is all that is checked here. This runs on the
+ * edge and cannot reach the session helpers, so it is a gate, not an
+ * authorisation decision — route handlers remain responsible for anything that
+ * actually matters.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- * SPDX-License-Identifier: Apache-2.0
+ * Public by design: sign-in, the auth endpoint, and the recipient claim link.
+ * The claim link MUST stay public — Persona C receives a URL and has no
+ * account (FR-021).
  */
 
-import { NextResponse, type NextRequest } from "next/server";
-import { createSupabaseReqResClient } from "@/lib/supabase/server-client";
+const PUBLIC_PREFIXES = ["/sign-in", "/api/auth", "/claim", "/api/claim"];
 
 export async function proxy(request: NextRequest) {
-  const response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  const { pathname } = request.nextUrl;
 
-  const supabase = createSupabaseReqResClient(request, response);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Skip redirect logic for API routes
-  if (request.nextUrl.pathname.startsWith("/api")) {
-    return response;
+  if (PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
+    return NextResponse.next();
   }
 
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/", request.url));
+  if (request.cookies.get("aurum_session")?.value) {
+    return NextResponse.next();
   }
 
-  if (user && !request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // APIs get a JSON 401 rather than an HTML redirect.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { code: "UNAUTHORIZED", message: "Please sign in." },
+      { status: 401 },
+    );
   }
 
-  return response;
+  const url = request.nextUrl.clone();
+  url.pathname = "/sign-in";
+  url.search = "";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
-     * Feel free to modify this pattern to include more paths.
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

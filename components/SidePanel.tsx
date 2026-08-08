@@ -17,7 +17,7 @@ const CIRCLE_PRODUCTS = [
   },
   {
     name: "Circle Wallets",
-    role: "Developer-Controlled custody — no seed phrase, no extension, no key management",
+    role: "Developer-Controlled custody — nothing to install, nothing to memorise",
   },
   {
     name: "Circle Gateway",

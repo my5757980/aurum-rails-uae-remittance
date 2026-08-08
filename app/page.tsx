@@ -26,6 +26,9 @@ interface Quote {
     service: string;
     total: string;
     totalAed: string;
+    totalUsd: string;
+    networkUsd: string;
+    serviceUsd: string;
     spreadBps: number;
   };
   rate: { pair: string; source: string; retrievedAt: string; isStale: boolean };
@@ -319,9 +322,29 @@ export default function SendPage() {
 
             <div className="my-3 border-t border-slate-800" />
 
-            <Row label="Our fee" value={`AED ${quote.fees.totalAed}`} />
-            <Row label="Network cost (Arc)" value={`${quote.fees.network} USDC`} indent muted />
-            <Row label="Service fee" value={`${quote.fees.service} USDC`} indent muted />
+            {/* FR-009 — every fee in BOTH AED and USD. */}
+            <Row
+              label="Our fee"
+              value={`AED ${quote.fees.totalAed}  ·  USD ${quote.fees.totalUsd}`}
+            />
+            <Row
+              label="Network cost (Arc)"
+              // A real cost below one cent. "USD 0.00" would read as free, which
+              // it is not — say "less than a cent" rather than round it away.
+              value={
+                quote.fees.networkUsd === "0.00"
+                  ? "under USD 0.01"
+                  : `USD ${quote.fees.networkUsd}`
+              }
+              indent
+              muted
+            />
+            <Row
+              label="Service fee"
+              value={`USD ${quote.fees.serviceUsd}`}
+              indent
+              muted
+            />
 
             <div className="my-3 border-t border-slate-800" />
 
@@ -363,7 +386,9 @@ export default function SendPage() {
             <div className="my-3 border-t border-slate-800" />
 
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500">Total cost AED {quote.fees.totalAed}</span>
+              <span className="text-slate-500">
+                Total cost AED {quote.fees.totalAed} · USD {quote.fees.totalUsd}
+              </span>
               <span
                 className={
                   expired || secondsLeft <= 10

@@ -15,6 +15,7 @@ import {
 } from "@circle-fin/developer-controlled-wallets";
 import { ARC_BLOCKCHAIN, ARC_USDC_TOKEN_ID, assertArcBlockchain } from "./chain";
 import { parseUsdc6, usdc6, formatUsdc6, type Usdc6 } from "./money";
+import { timed } from "./logger";
 
 export interface WalletInfo {
   id: string;
@@ -166,18 +167,29 @@ export async function submitTransfer(params: {
   amount: Usdc6;
   idempotencyKey: string;
 }): Promise<SubmitResult> {
-  const res = await sdk().createTransaction({
-    walletId: params.fromWalletId,
-    tokenId: ARC_USDC_TOKEN_ID,
-    destinationAddress: params.toAddress,
-    // SDK quirk: the field is `amount` (singular) but takes a string ARRAY.
-    amount: [formatUsdc6(params.amount)],
-    fee: { type: "level", config: { feeLevel: "MEDIUM" } },
-    idempotencyKey: params.idempotencyKey,
-  });
-  const id = res.data?.id;
-  if (!id) throw new Error("Circle returned no transaction id");
-  return { circleTransactionId: id };
+  // FR-030 — amount is logged, credentials are not (logger redacts by shape).
+  return timed(
+    "circle.createTransaction",
+    {
+      correlationId: params.idempotencyKey,
+      blockchain: ARC_BLOCKCHAIN,
+      amountUsdc6: formatUsdc6(params.amount),
+    },
+    async () => {
+      const res = await sdk().createTransaction({
+        walletId: params.fromWalletId,
+        tokenId: ARC_USDC_TOKEN_ID,
+        destinationAddress: params.toAddress,
+        // SDK quirk: the field is `amount` (singular) but takes a string ARRAY.
+        amount: [formatUsdc6(params.amount)],
+        fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+        idempotencyKey: params.idempotencyKey,
+      });
+      const id = res.data?.id;
+      if (!id) throw new Error("Circle returned no transaction id");
+      return { circleTransactionId: id };
+    },
+  );
 }
 
 export interface CircleTxStatus {

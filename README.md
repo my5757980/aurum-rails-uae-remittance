@@ -9,6 +9,10 @@ A transparent remittance experience for the UAE → Global corridor. Send money 
 from Dubai, see **every** fee before you commit, and watch it settle on Arc in seconds
 with a public transaction you can verify yourself.
 
+### ▶ **[Try it live — aurum-rails-uae-remittance.vercel.app](https://aurum-rails-uae-remittance.vercel.app)**
+
+Choose **"Try the demo — no sign-up"** to skip the email step.
+
 **Live proof — a real transfer made by this app:**
 [`0x16f0e66d…4b7db699`](https://testnet.arcscan.app/tx/0x16f0e66d18a0c17f3619a966721001355735a2b49c2712eeba970c864b7db699)
 · settled in **3.6 seconds** · confirmed on-chain in **≤ 0.51 s**

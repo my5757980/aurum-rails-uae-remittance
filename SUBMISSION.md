@@ -26,9 +26,16 @@
 
 | | |
 |---|---|
+| **Demo Application URL** | **https://aurum-rails-uae-remittance.vercel.app** |
 | **GitHub Repository** | https://github.com/my5757980/aurum-rails-uae-remittance |
 | **Demo Video** | https://streamable.com/wutq5h |
-| **Live proof (on-chain)** | https://testnet.arcscan.app/tx/0x16f0e66d18a0c17f3619a966721001355735a2b49c2712eeba970c864b7db699 |
+| **Live proof (on-chain)** | https://testnet.arcscan.app/tx/0x65e999db15e4c6c718312a7c8b29102c62b55fe310d114176e74ede171622acb |
+
+**To try it:** open the app and choose **"Try the demo — no sign-up"**. That skips the
+email step, which matters because the free Supabase tier rate-limits signup email.
+Everything after that is live: the quote, the transfer, and the explorer link.
+
+> The transaction hash above was produced **by the deployed application**, not locally.
 
 ---
 
@@ -70,8 +77,35 @@ So we compete on **transparency and time-to-settlement**, and we prove both on-c
 
 ## 6. Working MVP
 
-All of the following was executed against the live application and verified, not
+**Live at https://aurum-rails-uae-remittance.vercel.app** — Next.js on Vercel, with the
+API routes running as serverless functions and PostgreSQL (Supabase) behind them. Frontend
+and backend are one deployment; there is no separate backend service.
+
+All of the following was executed against the deployed application and verified, not
 described from a plan.
+
+### What deploying taught us — three bugs local testing could not find
+
+Worth stating because it shaped the architecture. Deploying early and testing against the
+real host surfaced three defects, all with the same root cause: **code that assumed the
+process keeps living after it responds.** Serverless freezes the function the instant the
+response is sent.
+
+1. **Status was driven by a background timer** started after responding. It never ran in
+   production. Status is now advanced on demand — the UI's own polling moves the state
+   machine, which is one code path that is correct on both a long-running server and a
+   serverless one.
+2. **The in-memory store is per-instance**, and requests spread across instances, so a
+   quote created on one was absent on another. Reads now fall back to PostgreSQL. The
+   idempotency check got the same treatment, and that one matters most: an
+   in-memory-only check on a retry landing elsewhere would happily pay someone twice.
+3. **Database writes were fire-and-forget**, so the write carrying the Circle transaction
+   id died with the frozen function. Every payment sat at `INITIATED` forever while the
+   UI showed a spinner. **This one was only caught by testing the deployed URL** — the
+   build passed, the local run passed, and the product was still broken.
+
+The third is the reason this section exists. "It builds" and "it works locally" are not
+evidence that a payments product works.
 
 ### Consumer remittance (hero flow)
 

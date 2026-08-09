@@ -18,10 +18,7 @@
 
 ## 3. Circle Account Email
 
-> ⚠️ **FILL THIS IN** — the email on your Circle developer account
-> (console.circle.com), which may differ from your Ignyte login.
-
-`__________________________`
+**my5757980@gmail.com**
 
 ---
 

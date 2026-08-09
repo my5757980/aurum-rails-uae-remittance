@@ -176,11 +176,28 @@ export const db: Db =
  * Instead persist registers itself here at load time. Keeps the dependency
  * one-directional and lets the app run with no database at all.
  */
-type EventHook = (event: StatusEvent) => void;
+type EventHook = (event: StatusEvent) => Promise<unknown>;
 let eventHook: EventHook | null = null;
 export const setEventHook = (hook: EventHook): void => {
   eventHook = hook;
 };
+
+/**
+ * Writes started but not yet finished.
+ *
+ * `appendEvent` is synchronous by design — callers should not have to await a
+ * database round-trip to record a state change. But on serverless the platform
+ * freezes the function the instant it responds, and any unfinished write dies
+ * with it. So we keep the handles and let request handlers drain them with
+ * `flushPersistence()` before returning. Long-running hosts are unaffected.
+ */
+const pendingWrites: Promise<unknown>[] = [];
+
+export async function flushPersistence(): Promise<void> {
+  if (!pendingWrites.length) return;
+  const inFlight = pendingWrites.splice(0, pendingWrites.length);
+  await Promise.allSettled(inFlight);
+}
 
 export function appendEvent(
   transferId: string,
@@ -206,7 +223,8 @@ export function appendEvent(
     correlationId,
   };
   db.events.set(transferId, [...existing, event]);
-  eventHook?.(event);
+  const write = eventHook?.(event);
+  if (write) pendingWrites.push(write);
   return event;
 }
 

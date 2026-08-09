@@ -121,7 +121,9 @@ export async function createQuote(
   };
 
   db.quotes.set(quote.id, quote);
-  saveQuote(quote);
+  // Awaited: the very next request is the transfer, and on serverless it may
+  // land on a different instance that can only see what reached the database.
+  await saveQuote(quote);
   return quote;
 }
 

@@ -65,11 +65,21 @@ const upsert = (table: string, row: unknown) =>
   rest(table, { method: "POST", body: JSON.stringify(row) });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Writes — fire-and-forget so they never sit on the hero path
+// Writes
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// These return their promise rather than firing and forgetting. On a
+// long-running server the difference is cosmetic; on serverless it is the whole
+// ballgame — the platform freezes the function the moment it responds, killing
+// any in-flight request. An un-awaited write silently vanished, which left the
+// database holding a transfer with no circle_transaction_id, so the next
+// instance had nothing to advance and the payment sat at INITIATED forever.
+//
+// Callers on the critical path await these. Callers where a lost write is
+// merely untidy (a quote, a seeded recipient) may still choose not to.
 
-export function saveRecipient(r: Recipient): void {
-  void upsert("recipients", {
+export function saveRecipient(r: Recipient): Promise<Response | null> {
+  return upsert("recipients", {
     id: r.id,
     name: r.name,
     corridor_code: r.corridorCode,
@@ -86,8 +96,8 @@ export function saveRecipient(r: Recipient): void {
   });
 }
 
-export function saveQuote(q: Quote): void {
-  void upsert("quotes", {
+export function saveQuote(q: Quote): Promise<Response | null> {
+  return upsert("quotes", {
     id: q.id,
     recipient_id: q.recipientId,
     send_aed: (q.sendAed as bigint).toString(),
@@ -108,8 +118,8 @@ export function saveQuote(q: Quote): void {
   });
 }
 
-export function saveTransfer(t: Transfer): void {
-  void upsert("transfers", {
+export function saveTransfer(t: Transfer): Promise<Response | null> {
+  return upsert("transfers", {
     id: t.id,
     quote_id: t.quoteId,
     recipient_id: t.recipientId,
@@ -125,8 +135,8 @@ export function saveTransfer(t: Transfer): void {
   });
 }
 
-export function saveStatusEvent(e: StatusEvent): void {
-  void upsert("status_events", {
+export function saveStatusEvent(e: StatusEvent): Promise<Response | null> {
+  return upsert("status_events", {
     id: e.id,
     transfer_id: e.transferId,
     from_state: e.fromState,

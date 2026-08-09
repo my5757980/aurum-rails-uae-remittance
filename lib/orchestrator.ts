@@ -18,6 +18,7 @@ import {
   db,
   appendEvent,
   currentState,
+  flushPersistence,
   TERMINAL_STATES,
   type Quote,
   type Transfer,
@@ -133,9 +134,11 @@ export async function executeTransfer(
   };
   db.transfers.set(transfer.id, transfer);
   db.idempotency.set(idempotencyKey, transfer.id);
-  saveTransfer(transfer);
 
   appendEvent(transfer.id, "INITIATED", correlationId);
+  // Persisted before we call Circle, so a crash mid-submit still leaves a
+  // record with the idempotency key rather than an invisible payment.
+  await saveTransfer(transfer);
 
   try {
     const { circleTransactionId } = await submitTransfer({
@@ -146,8 +149,14 @@ export async function executeTransfer(
     });
     transfer.circleTransactionId = circleTransactionId;
     db.transfers.set(transfer.id, transfer);
-    saveTransfer(transfer);
     appendEvent(transfer.id, "SUBMITTED", correlationId);
+
+    // Awaited, not fired and forgotten. Without the Circle transaction id
+    // durably stored, another instance has nothing to advance and the payment
+    // sits at INITIATED forever — which is exactly what happened in the first
+    // deployed test.
+    await saveTransfer(transfer);
+    await flushPersistence();
 
     // Deliberately NOT kicked off in the background — see advanceTransfer().
     // The UI's own polling drives the state machine, which is the only pattern
@@ -204,7 +213,7 @@ export async function advanceTransfer(transferId: string): Promise<void> {
     transfer.txHash = status.txHash;
     transfer.explorerUrl = explorerTxUrl(status.txHash);
     db.transfers.set(transferId, transfer);
-    saveTransfer(transfer);
+    await saveTransfer(transfer);
   }
 
   if (mapped !== state) {
@@ -218,6 +227,7 @@ export async function advanceTransfer(transferId: string): Promise<void> {
 
   if (mapped === "SETTLED") {
     await deliver(transferId, correlationId);
+    await flushPersistence();
     return;
   }
 
@@ -232,6 +242,8 @@ export async function advanceTransfer(transferId: string): Promise<void> {
       "Confirmation is taking longer than expected. We're checking the network.",
     );
   }
+
+  await flushPersistence();
 }
 
 /** Final leg: bridge if the recipient is on another chain, then mark delivered. */
@@ -279,6 +291,6 @@ async function deliver(transferId: string, correlationId: string): Promise<void>
 
   transfer.deliveredAt = new Date().toISOString();
   db.transfers.set(transferId, transfer);
-  saveTransfer(transfer);
   appendEvent(transferId, "DELIVERED", correlationId);
+  await saveTransfer(transfer);
 }

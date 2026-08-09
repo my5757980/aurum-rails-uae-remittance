@@ -88,3 +88,4 @@ supabase/.temp/
 next-env.d.ts
 form-*.png
 submission.html
+vercel-*.png

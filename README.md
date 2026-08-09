@@ -13,7 +13,8 @@ with a public transaction you can verify yourself.
 [`0x16f0e66d…4b7db699`](https://testnet.arcscan.app/tx/0x16f0e66d18a0c17f3619a966721001355735a2b49c2712eeba970c864b7db699)
 · settled in **3.6 seconds** · confirmed on-chain in **≤ 0.51 s**
 
-**Demo video:** _(link)_ · script in [`docs/demo-script.md`](docs/demo-script.md)
+**Demo video:** **[Watch the 2-minute walkthrough →](https://streamable.com/wutq5h)**
+· narration script in [`docs/demo-script.md`](docs/demo-script.md)
 
 ---
 

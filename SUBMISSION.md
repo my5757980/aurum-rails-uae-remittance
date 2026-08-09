@@ -27,7 +27,7 @@
 | | |
 |---|---|
 | **GitHub Repository** | https://github.com/my5757980/aurum-rails-uae-remittance |
-| **Demo Video** | ⚠️ **FILL IN** — paste your uploaded video link |
+| **Demo Video** | https://streamable.com/wutq5h |
 | **Live proof (on-chain)** | https://testnet.arcscan.app/tx/0x16f0e66d18a0c17f3619a966721001355735a2b49c2712eeba970c864b7db699 |
 
 ---

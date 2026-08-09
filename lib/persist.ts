@@ -145,6 +145,16 @@ if (isEnabled) setEventHook(saveStatusEvent);
 // Hydration — runs once, on first use
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Single-row reads — the serverless safety net
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// On a serverless host each request may land on a different instance, and the
+// in-memory maps are per-instance. A quote created on one instance is simply
+// absent on another, which would surface to the user as "that quote no longer
+// exists" at random. These fetch a single row on a cache miss and repopulate
+// memory, so the store behaves as one shared thing regardless of host.
+
 let hydrated = false;
 let hydrating: Promise<void> | null = null;
 
@@ -152,6 +162,106 @@ async function select<T>(path: string): Promise<T[]> {
   const res = await rest(path, { method: "GET", headers: { Prefer: "" } });
   if (!res || !res.ok) return [];
   return (await res.json()) as T[];
+}
+
+type QuoteRow = Record<string, string | number | boolean | null>;
+type TxRow = Record<string, string | null>;
+type EvRow = Record<string, string | null>;
+
+function toQuote(q: QuoteRow): Quote {
+  return {
+    id: String(q.id),
+    recipientId: String(q.recipient_id),
+    sendAed: aedFils(BigInt(String(q.send_aed))),
+    sendUsdc6: usdc6(BigInt(String(q.send_usdc6))),
+    fees: {
+      networkUsdc6: usdc6(BigInt(String(q.network_fee_usdc6))),
+      serviceUsdc6: usdc6(BigInt(String(q.service_fee_usdc6))),
+      totalUsdc6: usdc6(
+        BigInt(String(q.network_fee_usdc6)) + BigInt(String(q.service_fee_usdc6)),
+      ),
+      totalAed: aedFils(0n),
+      spreadBps: Number(q.fx_spread_bps ?? 0),
+    },
+    rate: {
+      base: "AED",
+      quote: String(q.landed_currency),
+      rateScaled: BigInt(String(q.fx_rate_scaled)),
+      rateScale: BigInt(String(q.fx_rate_scale ?? RATE_SCALE)),
+      source: String(q.fx_source),
+      retrievedAt: String(q.fx_retrieved_at),
+      isStale: Boolean(q.fx_is_stale),
+    },
+    landedAmount: minorUnits(BigInt(String(q.landed_amount_minor))),
+    landedCurrency: String(q.landed_currency),
+    landedIsSimulated: true,
+    etaSeconds: Number(q.eta_seconds),
+    createdAt: String(q.created_at),
+    expiresAt: String(q.expires_at),
+  };
+}
+
+function toTransfer(t: TxRow): Transfer {
+  return {
+    id: String(t.id),
+    quoteId: String(t.quote_id),
+    recipientId: String(t.recipient_id),
+    amountUsdc6: usdc6(BigInt(String(t.amount_usdc6))),
+    idempotencyKey: String(t.idempotency_key),
+    circleTransactionId: t.circle_transaction_id ?? undefined,
+    txHash: t.tx_hash ?? undefined,
+    explorerUrl: t.explorer_url ?? undefined,
+    destinationTxHash: t.destination_tx_hash ?? undefined,
+    destinationExplorerUrl: t.destination_explorer_url ?? undefined,
+    createdAt: String(t.created_at),
+    deliveredAt: t.delivered_at ?? undefined,
+  };
+}
+
+/** Fetch one quote from Postgres and put it back in memory. */
+export async function fetchQuote(id: string): Promise<Quote | null> {
+  const rows = await select<QuoteRow>(`quotes?id=eq.${encodeURIComponent(id)}&select=*`);
+  if (!rows.length) return null;
+  const quote = toQuote(rows[0]!);
+  db.quotes.set(quote.id, quote);
+  return quote;
+}
+
+/** Fetch one transfer plus its status history and put both back in memory. */
+export async function fetchTransfer(id: string): Promise<Transfer | null> {
+  const rows = await select<TxRow>(`transfers?id=eq.${encodeURIComponent(id)}&select=*`);
+  if (!rows.length) return null;
+  const transfer = toTransfer(rows[0]!);
+  db.transfers.set(transfer.id, transfer);
+  db.idempotency.set(transfer.idempotencyKey, transfer.id);
+
+  const events = await select<EvRow>(
+    `status_events?transfer_id=eq.${encodeURIComponent(id)}&order=occurred_at.asc&select=*`,
+  );
+  db.events.set(
+    transfer.id,
+    events.map((e) => ({
+      id: String(e.id),
+      transferId: transfer.id,
+      fromState: (e.from_state as TransferState | null) ?? null,
+      toState: e.to_state as TransferState,
+      occurredAt: String(e.occurred_at),
+      reason: e.reason ?? undefined,
+      correlationId: String(e.correlation_id),
+    })),
+  );
+  return transfer;
+}
+
+/** Resolve a transfer by idempotency key across instances (FR-014). */
+export async function fetchTransferByIdempotencyKey(
+  key: string,
+): Promise<Transfer | null> {
+  const rows = await select<TxRow>(
+    `transfers?idempotency_key=eq.${encodeURIComponent(key)}&select=*`,
+  );
+  if (!rows.length) return null;
+  return fetchTransfer(String(rows[0]!.id));
 }
 
 export async function hydrate(): Promise<void> {

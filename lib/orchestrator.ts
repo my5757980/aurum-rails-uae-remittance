@@ -14,7 +14,14 @@
 import "server-only";
 import { ARC_CHAIN_ID, assertArcTestnet, explorerTxUrl } from "./chain";
 import { gteUsdc6 } from "./money";
-import { db, appendEvent, type Quote, type Transfer } from "./domain";
+import {
+  db,
+  appendEvent,
+  currentState,
+  TERMINAL_STATES,
+  type Quote,
+  type Transfer,
+} from "./domain";
 import { isExpired, totalDebit } from "./quote-engine";
 import {
   getSenderWallet,
@@ -22,7 +29,7 @@ import {
   submitTransfer,
   getTransactionStatus,
 } from "./wallet-service";
-import { saveTransfer } from "./persist";
+import { fetchQuote, fetchTransferByIdempotencyKey, saveTransfer } from "./persist";
 import { bridgeToDestination, destinationExplorerUrl, needsBridge } from "./bridge";
 
 export class TransferError extends Error {
@@ -75,13 +82,15 @@ export async function executeTransfer(
   const correlationId = crypto.randomUUID();
 
   // Idempotency first — a repeat returns the original, never a second transfer.
+  // Checked against the database too: on serverless the retry may land on a
+  // different instance, and an in-memory-only check would happily pay twice.
   const existingId = db.idempotency.get(idempotencyKey);
-  if (existingId) {
-    const existing = db.transfers.get(existingId);
-    if (existing) return existing;
-  }
+  const existing = existingId
+    ? db.transfers.get(existingId)
+    : await fetchTransferByIdempotencyKey(idempotencyKey);
+  if (existing) return existing;
 
-  const quote = db.quotes.get(quoteId);
+  const quote = db.quotes.get(quoteId) ?? (await fetchQuote(quoteId));
   if (!quote) {
     throw new TransferError("QUOTE_NOT_FOUND", "That quote no longer exists.", 404);
   }
@@ -140,8 +149,9 @@ export async function executeTransfer(
     saveTransfer(transfer);
     appendEvent(transfer.id, "SUBMITTED", correlationId);
 
-    // Drive to a terminal state in the background; the UI polls our own API.
-    void trackToCompletion(transfer.id, circleTransactionId, correlationId);
+    // Deliberately NOT kicked off in the background — see advanceTransfer().
+    // The UI's own polling drives the state machine, which is the only pattern
+    // that survives a serverless host freezing the function after it responds.
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     appendEvent(transfer.id, "FAILED", correlationId, `Could not submit: ${message}`);
@@ -151,100 +161,124 @@ export async function executeTransfer(
   return transfer;
 }
 
-const POLL_MS = 2_000;
-const POLL_TIMEOUT_MS = 120_000;
+const STALE_MS = 180_000;
 
-async function trackToCompletion(
-  transferId: string,
-  circleTransactionId: string,
-  correlationId: string,
-): Promise<void> {
-  const started = Date.now();
-  let last = "SUBMITTED";
+/** Transfers whose bridge leg is mid-flight, so a second poll cannot restart it. */
+const bridging = new Set<string>();
 
-  while (Date.now() - started < POLL_TIMEOUT_MS) {
-    await new Promise((r) => setTimeout(r, POLL_MS));
+/**
+ * Advance a transfer by one step, driven by a status read.
+ *
+ * WHY THIS IS PULL, NOT PUSH:
+ * The first version kicked off a background `setTimeout` loop after responding.
+ * That works on a long-running server and is silently broken on serverless —
+ * the function freezes once the response is sent, so the loop never runs and
+ * every transfer sticks at "Sending on Arc" forever. Rather than keep two
+ * behaviours for two hosts, status is now advanced on demand: the UI already
+ * polls `GET /api/transfers/:id` every 1.2s, and each of those calls moves the
+ * state machine forward. One code path, correct on both.
+ *
+ * Safe to call repeatedly and concurrently: it only ever appends an event when
+ * the mapped state actually changed.
+ */
+export async function advanceTransfer(transferId: string): Promise<void> {
+  const transfer = db.transfers.get(transferId);
+  if (!transfer?.circleTransactionId) return;
 
-    let status;
-    try {
-      status = await getTransactionStatus(circleTransactionId);
-    } catch {
-      continue; // transient; keep polling rather than failing the transfer
-    }
+  const state = currentState(transferId);
+  if (state && TERMINAL_STATES.has(state)) return;
+  if (bridging.has(transferId)) return; // a bridge is already running
 
-    const mapped = mapCircleState(status.state);
-    const transfer = db.transfers.get(transferId);
-    if (!transfer) return;
+  const correlationId = crypto.randomUUID();
 
-    if (status.txHash && !transfer.txHash) {
-      transfer.txHash = status.txHash;
-      transfer.explorerUrl = explorerTxUrl(status.txHash);
-      db.transfers.set(transferId, transfer);
-      saveTransfer(transfer);
-    }
-
-    if (mapped !== last) {
-      appendEvent(
-        transferId,
-        mapped,
-        correlationId,
-        mapped === "FAILED" ? `Network reported: ${status.state}` : undefined,
-      );
-      last = mapped;
-    }
-
-    if (mapped === "SETTLED") {
-      appendEvent(transferId, "DELIVERING", correlationId);
-
-      // US3 — if the recipient is paid on another chain, bridge before we call
-      // this delivered. A failure here is a real failure: the money settled on
-      // Arc but did not reach them, and saying "Delivered" would be a lie.
-      const recipient = db.recipients.get(transfer.recipientId);
-      if (recipient && needsBridge(recipient.destinationCode)) {
-        try {
-          const sender = await getSenderWallet();
-          const result = await bridgeToDestination({
-            fromAddress: sender.address,
-            toAddress: recipient.destinationAddress ?? recipient.address!,
-            amount: transfer.amountUsdc6,
-            destinationCode: recipient.destinationCode!,
-          });
-          if (result.destinationTxHash) {
-            transfer.destinationTxHash = result.destinationTxHash;
-            transfer.destinationExplorerUrl = destinationExplorerUrl(
-              recipient.destinationCode,
-              result.destinationTxHash,
-            );
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          appendEvent(
-            transferId,
-            "FAILED",
-            correlationId,
-            `Settled on Arc but couldn't reach their network: ${message}`,
-          );
-          return;
-        }
-      } else {
-        // Arc-only: the last mile is simulated and labelled (Constitution II).
-        await new Promise((r) => setTimeout(r, 800));
-      }
-
-      transfer.deliveredAt = new Date().toISOString();
-      db.transfers.set(transferId, transfer);
-      saveTransfer(transfer);
-      appendEvent(transferId, "DELIVERED", correlationId);
-      return;
-    }
-    if (mapped === "FAILED") return;
+  let status;
+  try {
+    status = await getTransactionStatus(transfer.circleTransactionId);
+  } catch {
+    return; // transient — the next poll tries again
   }
 
-  // No terminal state in time: reconcile, never resubmit (E6).
-  appendEvent(
-    transferId,
-    "NEEDS_REVIEW",
-    correlationId,
-    "Confirmation is taking longer than expected. We're checking the network.",
-  );
+  const mapped = mapCircleState(status.state);
+
+  if (status.txHash && !transfer.txHash) {
+    transfer.txHash = status.txHash;
+    transfer.explorerUrl = explorerTxUrl(status.txHash);
+    db.transfers.set(transferId, transfer);
+    saveTransfer(transfer);
+  }
+
+  if (mapped !== state) {
+    appendEvent(
+      transferId,
+      mapped,
+      correlationId,
+      mapped === "FAILED" ? `Network reported: ${status.state}` : undefined,
+    );
+  }
+
+  if (mapped === "SETTLED") {
+    await deliver(transferId, correlationId);
+    return;
+  }
+
+  // Nothing terminal and nothing moving for a long time: say so honestly
+  // rather than leaving a spinner running (E6 — reconcile, never resubmit).
+  const age = Date.now() - new Date(transfer.createdAt).getTime();
+  if (age > STALE_MS && mapped !== "FAILED") {
+    appendEvent(
+      transferId,
+      "NEEDS_REVIEW",
+      correlationId,
+      "Confirmation is taking longer than expected. We're checking the network.",
+    );
+  }
+}
+
+/** Final leg: bridge if the recipient is on another chain, then mark delivered. */
+async function deliver(transferId: string, correlationId: string): Promise<void> {
+  const transfer = db.transfers.get(transferId);
+  if (!transfer) return;
+
+  appendEvent(transferId, "DELIVERING", correlationId);
+
+  // US3 — if the recipient is paid on another chain, bridge before we call this
+  // delivered. A failure here is a real failure: the money settled on Arc but
+  // did not reach them, and saying "Delivered" would be a lie.
+  const recipient = db.recipients.get(transfer.recipientId);
+
+  if (recipient && needsBridge(recipient.destinationCode)) {
+    bridging.add(transferId);
+    try {
+      const sender = await getSenderWallet();
+      const result = await bridgeToDestination({
+        fromAddress: sender.address,
+        toAddress: recipient.destinationAddress ?? recipient.address!,
+        amount: transfer.amountUsdc6,
+        destinationCode: recipient.destinationCode!,
+      });
+      if (result.destinationTxHash) {
+        transfer.destinationTxHash = result.destinationTxHash;
+        transfer.destinationExplorerUrl = destinationExplorerUrl(
+          recipient.destinationCode,
+          result.destinationTxHash,
+        );
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendEvent(
+        transferId,
+        "FAILED",
+        correlationId,
+        `Settled on Arc but couldn't reach their network: ${message}`,
+      );
+      return;
+    } finally {
+      bridging.delete(transferId);
+    }
+  }
+
+  transfer.deliveredAt = new Date().toISOString();
+  db.transfers.set(transferId, transfer);
+  saveTransfer(transfer);
+  appendEvent(transferId, "DELIVERED", correlationId);
 }

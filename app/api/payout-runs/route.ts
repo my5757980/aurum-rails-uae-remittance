@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { executeTransfer, TransferError } from "@/lib/orchestrator";
+import { advanceTransfer, executeTransfer, TransferError } from "@/lib/orchestrator";
 import { createQuote, QuoteError } from "@/lib/quote-engine";
-import { db, getEvents } from "@/lib/domain";
+import { currentState, db, getEvents, TERMINAL_STATES } from "@/lib/domain";
 import { ensureSeeded } from "@/lib/seed";
 import { transferDto, recipientDto } from "@/lib/serialize";
 
 export const dynamic = "force-dynamic";
+
+/** A run submits several transfers and waits for them to settle. */
+export const maxDuration = 60;
 
 interface Item {
   recipientId: string;
@@ -93,6 +96,28 @@ export async function POST(req: NextRequest) {
           transfer: null,
         });
       }
+    }
+
+    // Drive every submitted item to a terminal state before responding, so the
+    // results grid shows real outcomes rather than a snapshot taken the instant
+    // each was submitted. Bounded, because a hung item must not hang the run.
+    const pending = results.filter((r) => r.ok && r.transfer).map((r) => r.transfer!.id);
+    const deadline = Date.now() + 30_000;
+
+    while (pending.length && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 1500));
+      await Promise.all(pending.map((id) => advanceTransfer(id)));
+      for (let i = pending.length - 1; i >= 0; i--) {
+        const state = currentState(pending[i]!);
+        if (state && TERMINAL_STATES.has(state)) pending.splice(i, 1);
+      }
+    }
+
+    // Refresh each item with where it actually ended up.
+    for (const r of results) {
+      if (!r.ok || !r.transfer) continue;
+      const t = db.transfers.get(r.transfer.id);
+      if (t) r.transfer = transferDto(t, getEvents(t.id));
     }
 
     const succeeded = results.filter((r) => r.ok).length;

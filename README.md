@@ -174,8 +174,8 @@ history when the server restarts. Skip step 4 if you only want to see it run.
 
 ### 1. Install
 ```bash
-git clone <this-repo> aurum-rails
-cd aurum-rails
+git clone https://github.com/my5757980/aurum-rails-uae-remittance.git
+cd aurum-rails-uae-remittance
 npm install
 ```
 
@@ -321,15 +321,17 @@ Built in a 5-day sprint under a spec-driven workflow. Artifacts in
 spec, plan, research, data model, API contracts, task list.
 
 **Shipped:** hero remittance flow end-to-end on Arc · full fee/rate/status transparency ·
-live status timeline · receipts with explorer links · recipient claim view · add/manage
-recipients · transfer history with one-tap repeat · **batch payouts with independent
-per-item settlement** · treasury panel · **cross-chain bridge verified Arc → Base Sepolia**
-· Supabase persistence · mobile-first responsive UI · branded money types with unit tests.
+live status timeline · receipts with explorer links · recipient claim view · sign-in with
+email one-time code · add/manage recipients with duplicate detection · transfer history
+with one-tap repeat · **batch payouts with independent per-item settlement** · treasury
+panel · **cross-chain delivery wired into the send flow, verified Arc → Base Sepolia** ·
+PostgreSQL persistence · structured logging with secret redaction · mobile-first
+responsive UI verified 320–1920 px · branded money types with unit tests.
 
-**Not shipped:** end-user authentication (the demo runs as a single operator), Gateway
-*deposits* (so the treasury shows Arc-only balances, labelled as such), cross-chain
-delivery wired into the send flow — the bridge is proven by script but not yet a
-user-facing option.
+**Not shipped:** Gateway *deposits* — the treasury therefore shows Arc-only balances and
+says so in the UI rather than inventing a unified figure. Per-user data isolation is out
+of scope by design (see spec §9.1); sign-in is a gate, not multi-tenancy. No real KYC/AML,
+no real fiat pay-in, no mainnet.
 
 **Provenance:** forked from [`circlefin/arc-commerce`](https://github.com/circlefin/arc-commerce)
 @ `1a3a5e0`, Apache-2.0. Full delta in [`docs/PROVENANCE.md`](docs/PROVENANCE.md).

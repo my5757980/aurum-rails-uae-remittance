@@ -122,6 +122,21 @@ is scanned and a banned term fails the build.
 
 ## 7. Products Used
 
+**Circle products used on Arc — selected from the challenge list:**
+
+| Product | Used | Notes |
+|---|:---:|---|
+| **USDC** | ✅ | Settlement rail for every payment |
+| **Wallets** | ✅ | Developer-Controlled, one per sender and recipient |
+| **Gateway** | ✅ | Treasury balance; deposits not made — see §11 |
+| **CCTP / Bridge Kit** | ✅ | Via App Kit; Arc → Base Sepolia verified |
+| USYC | — | Not applicable to this use case |
+| StableFX | — | Relevant to AED↔USD but access is gated |
+| Nanopayments | — | Not applicable to this use case |
+
+**Four products doing real work.** We did not add products we do not need in order to
+raise a count — the reasoning is in §11.
+
 | Circle product | What it does in this project | Where in the code |
 |---|---|---|
 | **USDC on Arc Testnet** | Settlement rail for every payment. USDC is also the **native gas asset** on Arc, so network cost and payment share one unit — which is what makes a single honest fee number possible. | `lib/chain.ts`, `lib/money.ts` |
@@ -249,9 +264,45 @@ secrets discipline) **before** any code, and every subsequent decision was check
 
 ---
 
-## 11. Product Feedback
+## 11. Circle Product Feedback
 
 Specific and reproducible. Written to be useful rather than flattering.
+
+### Why we chose these products for this use case
+
+**USDC on Arc — because the corridor problem is timing, and Arc removes it.**
+The pain we set out to fix is that a sender cannot see where their money is for two
+days, and that a Friday-evening transfer sits until the following week. A chain with
+deterministic sub-second finality does not merely make that faster — it removes the
+category of problem. That USDC is *also* the native gas asset matters more than it
+sounds: fee and payment share one unit, which is the only reason a single honest fee
+number is expressible at all. On a chain with a separate gas token, our transparency
+promise would have needed an asterisk.
+
+**Circle Wallets (Developer-Controlled) — because the persona decides the architecture.**
+Our user is a site supervisor in Dubai who has no reason to learn what a wallet is. Any
+design requiring a seed phrase or a browser extension fails before it starts. DCW is what
+makes a seedless, extension-free, server-orchestrated flow possible, and it is why the
+recipient can be paid without ever holding an account. We chose Developer-Controlled over
+User-Controlled specifically so batch payouts could execute without per-item user signing.
+
+**Circle Gateway — because a business must promise a landed amount before it pays.**
+The B2B half of this track is a company paying contractors across several countries. The
+failure mode is discovering mid-run that liquidity sits on the wrong chain. A unified
+balance is the right primitive for quoting a run before authorising it. (We did not
+complete a Gateway *deposit*, so our treasury reads Arc-only and says so — see below.)
+
+**CCTP / App Kit — because "global" cannot mean "only if they are on our chain."**
+A UAE → Global product that requires every recipient to be on Arc is not global. Canonical
+burn-and-mint was the only option we would accept: wrapped or bridged representations
+would undermine the same guarantee — that what settles is what was sent — that the rest of
+the product is built on.
+
+**Products we deliberately did not use.** USYC (yield on idle treasury float) and
+Nanopayments solve problems this product does not have; adding them to inflate a count
+would have been dishonest. StableFX is genuinely relevant to AED↔USD settlement and we
+would reach for it next, but access is gated and we would rather ship four products doing
+real work than five where one is decoration.
 
 ### What worked well
 

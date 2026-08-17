@@ -348,4 +348,3 @@ no real fiat pay-in, no mainnet.
 ## License
 
 Apache-2.0, inherited from the upstream Circle sample. See [`LICENSE`](LICENSE).
-"# aurum-rails-uae-remittance" 

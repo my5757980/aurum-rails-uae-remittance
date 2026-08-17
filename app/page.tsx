@@ -57,7 +57,6 @@ export default function SendPage() {
 
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   const loadRecipients = useCallback(async (selectId?: string) => {
     try {
@@ -434,7 +433,7 @@ export default function SendPage() {
         Settled in USDC on Arc Testnet. Every payment is verifiable on the public explorer.
       </p>
 
-      <History onRepeat={repeat} refreshKey={refreshKey} />
+      <History onRepeat={repeat} />
       </main>
     </div>
   );

@@ -20,7 +20,6 @@ import {
   currentState,
   flushPersistence,
   TERMINAL_STATES,
-  type Quote,
   type Transfer,
 } from "./domain";
 import { isExpired, totalDebit } from "./quote-engine";

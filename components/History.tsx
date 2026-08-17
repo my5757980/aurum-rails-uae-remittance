@@ -23,10 +23,8 @@ interface HistoryItem {
 
 export function History({
   onRepeat,
-  refreshKey,
 }: {
   onRepeat: (recipientId: string, aed: string) => void;
-  refreshKey: number;
 }) {
   const [items, setItems] = useState<HistoryItem[] | null>(null);
 
@@ -45,7 +43,9 @@ export function History({
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+    // Sending navigates away to the transfer page, so this component
+    // remounts on the way back and re-fetches. It has no other trigger.
+  }, []);
 
   if (!items || items.length === 0) return null;
 

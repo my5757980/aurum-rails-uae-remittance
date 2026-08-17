@@ -1,29 +1,44 @@
 name: Continuous Integration
+
 on:
   pull_request:
   push:
-    branches: [master]
+    branches: [main]
+
+# Cancel an in-flight run when new commits land on the same branch or PR.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          submodules: 'true'
 
       - name: Install Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          # package.json requires >=22; without this the runner picks its own
+          # default and CI stops matching what the app actually runs on.
+          node-version-file: .nvmrc
+          cache: npm
 
+      # `npm ci` installs exactly what package-lock.json pins. `npm install`
+      # is free to resolve newer versions, so a green CI would not prove the
+      # locked tree builds.
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-  # scan:
-  #   needs: lint-and-test
-  #   if: ${{ github.event_name == 'pull_request' && github.event.repository.private == false }}
-  #   uses: circlefin/circle-public-github-workflows/.github/workflows/pr-scan.yaml@v1
+      - name: Lint
+        run: npm run lint
 
-  # release-sbom:
-  #   needs: lint-and-test
-  #   if: github.event_name == 'push'
-  #   uses: circlefin/circle-public-github-workflows/.github/workflows/attach-release-assets.yaml@v1
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test

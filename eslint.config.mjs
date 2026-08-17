@@ -28,7 +28,16 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  { ignores: [".next/"] },
+  {
+    ignores: [
+      ".next/",
+      // These are not modules. They are bare `async (page) => {...}`
+      // expressions handed to the Playwright MCP's code runner, so the
+      // module rules (no bare expressions, no require) don't apply.
+      "scripts/build-submission-pdf.js",
+      "scripts/record-demo.js",
+    ],
+  },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 
